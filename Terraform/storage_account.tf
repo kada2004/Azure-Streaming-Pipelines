@@ -13,6 +13,7 @@ resource "azurerm_storage_account" "tfstate" {
   }
 }
 
+
 # Create a Blob Container for Terraform state
 resource "azurerm_storage_container" "tfstate" {
   name                  = "terraform_state"
