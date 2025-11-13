@@ -1,4 +1,4 @@
 locals {
-  project_prefix = "Azure"
+  project_prefix = "Az"
   project_name   = "Streaming_Pipelines"
 }
