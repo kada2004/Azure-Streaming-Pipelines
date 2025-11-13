@@ -8,8 +8,8 @@ resource "azurerm_storage_account" "tfstate" {
   min_tls_version          = "TLS1_2"
 
   tags = {
-    Owner = "Dan"
-    Project     = local.project_name
+    Owner   = "Dan"
+    Project = local.project_name
   }
 }
 
