@@ -8,7 +8,7 @@ resource "azurerm_storage_account" "tfstate" {
   min_tls_version          = "TLS1_2"
 
   tags = {
-    Environment = "Terraform"
+    Owner = "Dan"
     Project     = local.project_name
   }
 }
