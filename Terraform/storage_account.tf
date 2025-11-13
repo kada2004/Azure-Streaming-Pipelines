@@ -1,6 +1,6 @@
 # Create a Storage Account for Terraform backend
 resource "azurerm_storage_account" "tfstate" {
-  name                     = "st${lower(local.project_prefix)}${lower(local.project_name)}tfstate"
+  name = lower(replace("st${local.project_prefix}${local.project_name}tfstate", "_", ""))
   resource_group_name      = azurerm_resource_group.rg.name
   location                 = var.location
   account_tier             = "Standard"
