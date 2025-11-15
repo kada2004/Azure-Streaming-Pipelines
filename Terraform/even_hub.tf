@@ -8,7 +8,7 @@ resource "azurerm_eventhub_namespace" "streaming_timeseries" {
   capacity            = 1
 
   tags = {
-    Owner = "Iot and Weather"
+    Owner = "Iot-and-Weather"
   }
 }
 
