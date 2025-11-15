@@ -1,6 +1,6 @@
 # Terraform backend storage
 resource "azurerm_storage_account" "tfstate" {
-  name                     = "stazstreamtfstate2"  
+  name                     = "stazstreamtfstate2"
   resource_group_name      = "rg-Az-Streaming_Pipelines"
   location                 = "westeurope"
   account_tier             = "Standard"
