@@ -1,7 +1,7 @@
 # Even Hub https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/eventhub.html
 
 resource "azurerm_eventhub_namespace" "streaming_timeseries" {
-  name                = "Iot_time_series"
+  name                = "Iot-time-series"
   location            = var.location
   resource_group_name = azurerm_resource_group.rg.name
   sku                 = "Standard"
