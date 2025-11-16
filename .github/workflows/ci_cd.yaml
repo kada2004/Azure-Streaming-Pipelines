@@ -4,17 +4,13 @@ on:
   push:
     branches:
     - main
-    paths-ignore:
-    - 'README.md' #exclude readme
-    - '*.md'
-    - 'docs/**'
+    paths:
+      - 'Terraform/**'
   pull_request:
     branches:
     - main
-    paths-ignore:
-    - 'README.md'
-    - '*.md'
-    - 'docs/**'
+    paths:
+      - 'Terraform/**'
 
 jobs:
   build:
