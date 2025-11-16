@@ -12,21 +12,23 @@ resource "azurerm_app_service_plan" "Ingestion01" {
   }
 }
 
-resource "azurerm_function_app" "function_app_ingestion01" {
+resource "azurerm_linux_function_app" "function_app_ingestion01" {
   name                       = "Ingestion-azure-functions"
   location                   = var.location
   resource_group_name        = azurerm_resource_group.rg.name
-  app_service_plan_id        = azurerm_app_service_plan.Ingestion01.id
+  service_plan_id            = azurerm_app_service_plan.Ingestion01.id
   storage_account_name       = azurerm_storage_account.functionsa.name
   storage_account_access_key = azurerm_storage_account.functionsa.primary_access_key
 
-  version = "~4"
+
 
   identity {
     type = "SystemAssigned"
   }
 
   site_config {
-    linux_fx_version = "Python|3.10"
+    application_stack {
+      python_version = "3.10"
+    }
   }
 }
