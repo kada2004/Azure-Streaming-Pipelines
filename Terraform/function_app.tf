@@ -21,6 +21,11 @@ resource "azurerm_function_app" "function_app_ingestion01" {
   storage_account_access_key = azurerm_storage_account.functionsa.primary_access_key
 
   version = "~4"
+
+  identity {
+    type = "SystemAssigned"
+  }
+
   site_config {
     linux_fx_version = "Python|3.10"
   }
