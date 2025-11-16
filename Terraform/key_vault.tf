@@ -12,15 +12,3 @@ resource "azurerm_key_vault" "streaming_time_SeriesIot" {
   }
 }
 
-# Function App access policy
-
-resource "azurerm_key_vault_access_policy" "function_app01" {
-  key_vault_id = azurerm_key_vault.streaming_time_SeriesIot.id
-  tenant_id    = azurerm_linux_function_app.function_app_ingestion01.identity[0].tenant_id
-  object_id    = azurerm_linux_function_app.function_app_ingestion01.identity[0].principal_id
-
-  secret_permissions = [
-    "Get",
-    "List"
-  ]
-}
