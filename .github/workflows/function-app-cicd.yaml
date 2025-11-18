@@ -46,7 +46,7 @@ jobs:
     - name: Prepare Deployment Package
       run: |
         cd function_app
-        zip -r ../functionapp.zip . -x ".venv/*" -x "__pycache__/*" -x "*.pyc"
+        zip -r ../functionapp.zip * -x ".venv/*" -x "__pycache__/*" -x "*.pyc""
 
 
     - name: Upload Build Artifact
