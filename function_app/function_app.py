@@ -34,5 +34,4 @@ def fetchweatherapi(myTimer: func.TimerRequest) -> None:
         data = response.json()
         logging.info(f"Weather data for {city}: {data}")
     except Exception as e:
-        logging.error(f"Error fetching weather data: {e}")
-        
+        logging.error(f"Error fetching weather data: {e}")    
