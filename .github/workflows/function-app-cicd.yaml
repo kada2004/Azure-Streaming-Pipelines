@@ -84,7 +84,9 @@ jobs:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: Deploy to Azure Function App
-      uses: azure/functions-action@v1
-      with:
-        app-name: "Ingestion-azure-functions"
-        package: "functionapp.zip"
+      run: |
+        az functionapp deployment source config-zip \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name Ingestion-azure-functions \
+          --src functionapp.zip \
+          --build-remote false
