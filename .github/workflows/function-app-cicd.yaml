@@ -48,8 +48,10 @@ jobs:
     - name: Prepare Deployment Package
       run: |
         cd function_app
-        zip -r ../functionapp.zip * -x '.venv/*' -x '__pycache__/*' -x '*.pyc'
-
+        zip -r ../functionapp.zip . -x '.venv/*' -x '__pycache__/*' -x '*.pyc'
+    
+    - name: Debug zip contents
+      run: unzip -l functionapp.zip
 
     - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
