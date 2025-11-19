@@ -7,10 +7,10 @@ from azure.keyvault.secrets import SecretClient
 app = func.FunctionApp()
 
 
-@app.timer_trigger(
+@app.schedule(
     schedule="0 * * * * *",
     arg_name="myTimer",
-    run_on_startup=False,
+    run_on_startup=True,
     use_monitor=False
 )
 def fetchweatherapi(myTimer: func.TimerRequest) -> None:
