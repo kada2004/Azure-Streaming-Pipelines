@@ -6,10 +6,6 @@ from azure.keyvault.secrets import SecretClient
 
 app = func.FunctionApp()
 
-KEYVAULT_URL = "https://kv-Az-TimeSeries.vault.azure.net/"
-
-credential = DefaultAzureCredential()
-secret_client = SecretClient(vault_url=KEYVAULT_URL, credential=credential)
 
 @app.timer_trigger(
     schedule="0 * * * * *",
@@ -20,12 +16,16 @@ secret_client = SecretClient(vault_url=KEYVAULT_URL, credential=credential)
 def fetchweatherapi(myTimer: func.TimerRequest) -> None:
     if myTimer.past_due:
         logging.info("The timer is past due!")
+        
+    KEYVAULT_URL = "https://kv-Az-TimeSeries.vault.azure.net/"
 
     BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
     #API_KEY = ""  
     city = "windhoek"  
 
     try:
+        credential = DefaultAzureCredential()
+        secret_client = SecretClient(vault_url=KEYVAULT_URL, credential=credential)
         api_key_secret = secret_client.get_secret("weather-api-key")
         API_KEY = api_key_secret.value
 
