@@ -3,16 +3,16 @@ name: Function App CI/CD
 on:
   push:
     branches:
-      - main
+    - main
     paths:
-      - 'function_app/**'
-      - '.github/workflows/function-app-cicd.yml'
+    - 'function_app/**'
+    - '.github/workflows/function-app-cicd.yml'
   pull_request:
     branches:
-      - main
+    - main
     paths:
-      - 'function_app/**'
-      - '.github/workflows/function-app-cicd.yml'
+    - 'function_app/**'
+    - '.github/workflows/function-app-cicd.yml'
 
 jobs:
   build:
@@ -50,27 +50,27 @@ jobs:
         name: functionapp-package
         path: functionapp.zip
 
-
+  # new deploy config 
   deploy:
     name: Deploy Function App
     runs-on: ubuntu-latest
     needs: build
-
-    # build only after merge of pull request
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
     steps:
-    - name: Download Artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: functionapp-package
-        path: .
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    
-    - name: Publish to Azure Function App
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Deploy to Azure Functions
       uses: Azure/functions-action@v1
       with:
         app-name: Ingestion-azure-functions
         publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
-        package: functionapp.zip
+        package: '${{ github.workspace }}/function_app'
         scm-do-build-during-deployment: true
+        enable-oryx-build: true
+        respect-funcignore: true
