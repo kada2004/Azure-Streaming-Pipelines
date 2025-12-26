@@ -76,20 +76,31 @@ resource "azurerm_api_management_api_policy" "ingest_policy" {
 <policies>
   <inbound>
     <base />
+    <!-- Read body  -->
     <set-variable name="payload"
-      value="@((string)context.Request.Body.As<string>(preserveContent: true))" />
-
+      value="@((string)context.Request.Body.As<string>(true))" />
+    <!-- Log payload to Event Hub  -->
     <log-to-eventhub logger-id="eventhub-logger">
-      @{
-        return context.Variables["payload"];
-      }
+      @((string)context.Variables["payload"])
     </log-to-eventhub>
-
+    <!-- Return immediately -->
     <return-response>
       <set-status code="202" reason="Accepted" />
+      <set-header name="Content-Type" exists-action="override">
+        <value>application/json</value>
+      </set-header>
       <set-body>{"status":"accepted"}</set-body>
     </return-response>
   </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
 </policies>
 POLICY
 }
