@@ -111,10 +111,3 @@ resource "azurerm_api_management_api_policy" "ingest_policy" {
 </policies>
 POLICY
 }
-
-
-
-
-
-
-
