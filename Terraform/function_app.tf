@@ -31,10 +31,6 @@ resource "azurerm_linux_function_app" "function_app_ingestion01" {
       python_version = "3.10"
     }
   }
-  app_settings = {
-    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.ingestion_ai.connection_string
-
-  }
   lifecycle {
     ignore_changes = [
       app_settings
