@@ -72,42 +72,7 @@ resource "azurerm_api_management_api_policy" "ingest_policy" {
   api_management_name = azurerm_api_management.apim_azure_stream.name
   resource_group_name = azurerm_resource_group.rg.name
 
-  xml_content = <<POLICY
-<policies>
-  <inbound>
-    <base />
-    <!-- Read body  -->
-    <set-variable name="payload"
-      value="@((string)context.Request.Body.As<string>(true))" />
-    <!-- Log payload to Event Hub  -->
-    <log-to-eventhub logger-id="eventhub-logger">
-      @((string)context.Variables["payload"])
-    </log-to-eventhub>
-    <!-- Return immediately -->
-    <return-response>
-      <set-status code="202" reason="Accepted" />
-      <set-header name="Content-Type" exists-action="override">
-        <value>application/json</value>
-      </set-header>
-      <set-body>{"status":"accepted"}</set-body>
-    </return-response>
-  </inbound>
-  <backend>
-    <base />
-  </backend>
-  <outbound>
-    <base />
-  </outbound>
-  <on-error>
-    <base />
-  </on-error>
-</policies>
-POLICY
+  lifecycle {
+    ignore_changes = [xml_content]
+  }
 }
-
-
-
-
-
-
-
