@@ -3,6 +3,8 @@ import azure.functions as func
 import requests
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
+import json
+from datetime import datetime
 
 app = func.FunctionApp()
 
@@ -12,7 +14,11 @@ app = func.FunctionApp()
     arg_name="myTimer",
     run_on_startup=False
 )
-def fetchweatherapi(myTimer: func.TimerRequest) -> None:
+# push data to even hub
+@app.event_hub_output(arg_name="evenhub",event_hub_name="Iot-time-series",connection="EVENT_HUB_CONNECTION")
+
+
+def fetchweatherapi(myTimer: func.TimerRequest,eventhub: func.Out[str]) -> None:
     if myTimer.past_due:
         logging.info("The timer is past due!")
         
@@ -31,6 +37,15 @@ def fetchweatherapi(myTimer: func.TimerRequest) -> None:
         response = requests.get(BASE_URL, params={"appid": API_KEY, "q": city})
         response.raise_for_status()
         data = response.json()
-        logging.info(f"Weather data for {city}: {data}")
+        event = {
+            "event_type": "weather",
+            "schema_version": 1,
+            "ingested_at": datetime.utcnow().isoformat(),
+            "payload": data
+        }
+        #send to evenhub
+        eventhub.set(json.dumps(event))
+
+        logging.info(f"Weather data for {city}: {data} and this have been send to even_hub as well")
     except Exception as e:
         logging.error(f"Error fetching weather data: {e}")
