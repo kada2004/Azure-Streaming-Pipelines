@@ -15,7 +15,7 @@ app = func.FunctionApp()
     run_on_startup=False
 )
 # push data to even hub
-@app.event_hub_output(arg_name="evenhub",event_hub_name="Iot-time-series",connection="EVENT_HUB_CONNECTION")
+@app.event_hub_output(arg_name="eventhub",event_hub_name="Iot-time-series",connection="EVENT_HUB_CONNECTION")
 
 
 def fetchweatherapi(myTimer: func.TimerRequest,eventhub: func.Out[str]) -> None:
