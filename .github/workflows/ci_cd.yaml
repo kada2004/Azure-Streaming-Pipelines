@@ -5,12 +5,12 @@ on:
     branches:
     - main
     paths:
-      - 'Terraform/**'
+    - 'Terraform/**'
   pull_request:
     branches:
     - main
     paths:
-      - 'Terraform/**'
+    - 'Terraform/**'
 
 jobs:
   build:
@@ -39,9 +39,11 @@ jobs:
         rm -f creds.json
       shell: bash
 
-    #- name: Set Synapse SQL Password for Terraform
-    #  run: echo "TF_VAR_synapse_sql_password=${{ secrets.SYNAPSE_SQL_PASSWORD }}" >> $GITHUB_ENV
-    #  shell: bash
+    - name: Set Credentials for Terraform
+      run: |
+        echo "TF_VAR_synapse_sql_password=${{ secrets.SYNAPSE_SQL_PASSWORD }}" >> $GITHUB_ENV
+        echo "TF_VAR_postgresql_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" >> $GITHUB_ENV
+      shell: bash
 
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v3
@@ -61,11 +63,8 @@ jobs:
       working-directory: Terraform
 
     - name: Terraform Plan
-      run: terraform plan -input=false -out=tfplan
+      run: terraform plan  -out=tfplan
       working-directory: Terraform
-      env:
-        TF_VAR_synapse_sql_password: ${{ secrets.TF_VAR_SYNAPSE_SQL_PASSWORD }}
-        TF_VAR_postgres_admin_password: ${{ secrets.TF_VAR_POSTGRES_ADMIN_PASSWORD }}
 
     - name: Upload Plan Artifact
       uses: actions/upload-artifact@v4
@@ -100,9 +99,11 @@ jobs:
         rm -f creds.json
       shell: bash
 
-    #- name: Set Synapse SQL Password for Terraform
-    #  run: echo "TF_VAR_synapse_sql_password=${{ secrets.SYNAPSE_SQL_PASSWORD }}" >> $GITHUB_ENV
-    #  shell: bash  
+    - name: Set Credentials for Terraform
+      run: |
+        echo "TF_VAR_synapse_sql_password=${{ secrets.SYNAPSE_SQL_PASSWORD }}" >> $GITHUB_ENV
+        echo "TF_VAR_postgresql_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" >> $GITHUB_ENV
+      shell: bash
 
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v3
@@ -114,8 +115,5 @@ jobs:
       working-directory: Terraform
 
     - name: Terraform Apply
-      run: terraform apply -input=false -auto-approve tfplan
+      run: terraform apply  -auto-approve tfplan
       working-directory: Terraform
-      env:
-        TF_VAR_synapse_sql_password: ${{ secrets.TF_VAR_SYNAPSE_SQL_PASSWORD }}
-        TF_VAR_postgres_admin_password: ${{ secrets.TF_VAR_POSTGRES_ADMIN_PASSWORD }}
