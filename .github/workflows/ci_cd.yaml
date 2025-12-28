@@ -63,7 +63,7 @@ jobs:
       working-directory: Terraform
 
     - name: Terraform Plan
-      run: terraform plan  -out=tfplan
+      run: terraform plan -input=false -out=tfplan
       working-directory: Terraform
 
     - name: Upload Plan Artifact
@@ -115,5 +115,5 @@ jobs:
       working-directory: Terraform
 
     - name: Terraform Apply
-      run: terraform apply  -auto-approve tfplan
+      run: terraform apply -input=false -auto-approve tfplan
       working-directory: Terraform
