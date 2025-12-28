@@ -42,7 +42,7 @@ jobs:
     - name: Set Credentials for Terraform
       run: |
         echo "TF_VAR_synapse_sql_password=${{ secrets.SYNAPSE_SQL_PASSWORD }}" >> $GITHUB_ENV
-        echo "TF_VAR_postgresql_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" >> $GITHUB_ENV
+        echo "TF_VAR_postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" >> $GITHUB_ENV
       shell: bash
 
     - name: Set up Terraform
