@@ -63,6 +63,9 @@ jobs:
     - name: Terraform Plan
       run: terraform plan -out=tfplan
       working-directory: Terraform
+      env:
+        TF_VAR_synapse_sql_password: ${{ secrets.TF_VAR_SYNAPSE_SQL_PASSWORD }}
+        TF_VAR_postgres_admin_password: ${{ secrets.TF_VAR_POSTGRES_ADMIN_PASSWORD }}
 
     - name: Upload Plan Artifact
       uses: actions/upload-artifact@v4
@@ -113,3 +116,6 @@ jobs:
     - name: Terraform Apply
       run: terraform apply -auto-approve tfplan
       working-directory: Terraform
+      env:
+        TF_VAR_synapse_sql_password: ${{ secrets.TF_VAR_SYNAPSE_SQL_PASSWORD }}
+        TF_VAR_postgres_admin_password: ${{ secrets.TF_VAR_POSTGRES_ADMIN_PASSWORD }}
