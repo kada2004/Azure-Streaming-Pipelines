@@ -61,7 +61,7 @@ jobs:
       working-directory: Terraform
 
     - name: Terraform Plan
-      run: terraform plan -out=tfplan
+      run: terraform plan -input=false -out=tfplan
       working-directory: Terraform
       env:
         TF_VAR_synapse_sql_password: ${{ secrets.TF_VAR_SYNAPSE_SQL_PASSWORD }}
@@ -114,7 +114,7 @@ jobs:
       working-directory: Terraform
 
     - name: Terraform Apply
-      run: terraform apply -auto-approve tfplan
+      run: terraform apply -input=false -auto-approve tfplan
       working-directory: Terraform
       env:
         TF_VAR_synapse_sql_password: ${{ secrets.TF_VAR_SYNAPSE_SQL_PASSWORD }}
