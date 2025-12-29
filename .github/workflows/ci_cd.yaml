@@ -23,7 +23,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # Plan on PR
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v3
       with:
@@ -33,23 +32,14 @@ jobs:
       run: terraform fmt -check -recursive
       working-directory: Terraform
 
-    - name: Terraform Init
-      run: terraform init
-      working-directory: Terraform
-
-    - name: Terraform Validate
-      run: terraform validate
-      working-directory: Terraform
-
-    # Everything below requires secrets 
     - name: Azure Login
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.fork == false
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: Set Terraform Azure credentials
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.fork == false
       run: |
         echo '${{ secrets.AZURE_CREDENTIALS }}' > creds.json
         echo "ARM_CLIENT_ID=$(jq -r .clientId creds.json)" >> $GITHUB_ENV
@@ -60,19 +50,29 @@ jobs:
       shell: bash
 
     - name: Set Credentials for Terraform
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.fork == false
       run: |
         echo "TF_VAR_synapse_sql_password=${{ secrets.SYNAPSE_SQL_PASSWORD }}" >> $GITHUB_ENV
         echo "TF_VAR_postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" >> $GITHUB_ENV
       shell: bash
 
+    - name: Terraform Init
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.fork == false
+      run: terraform init
+      working-directory: Terraform
+
+    - name: Terraform Validate
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.fork == false
+      run: terraform validate
+      working-directory: Terraform
+
     - name: Terraform Plan
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.fork == false
       run: terraform plan -input=false -out=tfplan
       working-directory: Terraform
 
     - name: Upload Plan Artifact
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      if: github.event_name == 'push'
       uses: actions/upload-artifact@v4
       with:
         name: terraform-plan
