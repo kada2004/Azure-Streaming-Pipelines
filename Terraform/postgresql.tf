@@ -16,6 +16,9 @@ resource "azurerm_postgresql_flexible_server" "postgres" {
   backup_retention_days = 7
 
   public_network_access_enabled = true
+  lifecycle {
+    ignore_changes = [zone]
+  }
 }
 
 
