@@ -12,6 +12,7 @@ resource "azurerm_synapse_workspace" "synapse" {
   }
 }
 
+
 resource "azurerm_synapse_firewall_rule" "allow_all" {
   name                 = "AllowAll"
   synapse_workspace_id = azurerm_synapse_workspace.synapse.id
