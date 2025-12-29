@@ -15,7 +15,6 @@ jobs:
   build:
     name: Terraform Build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' #  FIX: do not run on PRs
 
     outputs:
       artifact-name: terraform-plan
@@ -24,27 +23,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Azure Login
-      uses: azure/login@v2
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    - name: Set Terraform Azure credentials
-      run: |
-        echo '${{ secrets.AZURE_CREDENTIALS }}' > creds.json
-        echo "ARM_CLIENT_ID=$(jq -r .clientId creds.json)" >> $GITHUB_ENV
-        echo "ARM_CLIENT_SECRET=$(jq -r .clientSecret creds.json)" >> $GITHUB_ENV
-        echo "ARM_SUBSCRIPTION_ID=$(jq -r .subscriptionId creds.json)" >> $GITHUB_ENV
-        echo "ARM_TENANT_ID=$(jq -r .tenantId creds.json)" >> $GITHUB_ENV
-        rm -f creds.json
-      shell: bash
-
-    - name: Set Credentials for Terraform
-      run: |
-        echo "TF_VAR_synapse_sql_password=${{ secrets.SYNAPSE_SQL_PASSWORD }}" >> $GITHUB_ENV
-        echo "TF_VAR_postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" >> $GITHUB_ENV
-      shell: bash
-
+    # Plan on PR
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v3
       with:
@@ -62,11 +41,38 @@ jobs:
       run: terraform validate
       working-directory: Terraform
 
+    # Everything below requires secrets 
+    - name: Azure Login
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Set Terraform Azure credentials
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        echo '${{ secrets.AZURE_CREDENTIALS }}' > creds.json
+        echo "ARM_CLIENT_ID=$(jq -r .clientId creds.json)" >> $GITHUB_ENV
+        echo "ARM_CLIENT_SECRET=$(jq -r .clientSecret creds.json)" >> $GITHUB_ENV
+        echo "ARM_SUBSCRIPTION_ID=$(jq -r .subscriptionId creds.json)" >> $GITHUB_ENV
+        echo "ARM_TENANT_ID=$(jq -r .tenantId creds.json)" >> $GITHUB_ENV
+        rm -f creds.json
+      shell: bash
+
+    - name: Set Credentials for Terraform
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: |
+        echo "TF_VAR_synapse_sql_password=${{ secrets.SYNAPSE_SQL_PASSWORD }}" >> $GITHUB_ENV
+        echo "TF_VAR_postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" >> $GITHUB_ENV
+      shell: bash
+
     - name: Terraform Plan
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: terraform plan -input=false -out=tfplan
       working-directory: Terraform
 
     - name: Upload Plan Artifact
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: actions/upload-artifact@v4
       with:
         name: terraform-plan
@@ -89,7 +95,17 @@ jobs:
         name: terraform-plan
         path: Terraform
 
-    - name: Set Azure Credentials
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.9.8
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Set Terraform Azure credentials
       run: |
         echo '${{ secrets.AZURE_CREDENTIALS }}' > creds.json
         echo "ARM_CLIENT_ID=$(jq -r .clientId creds.json)" >> $GITHUB_ENV
@@ -104,11 +120,6 @@ jobs:
         echo "TF_VAR_synapse_sql_password=${{ secrets.SYNAPSE_SQL_PASSWORD }}" >> $GITHUB_ENV
         echo "TF_VAR_postgres_admin_password=${{ secrets.POSTGRES_ADMIN_PASSWORD }}" >> $GITHUB_ENV
       shell: bash
-
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.9.8
 
     - name: Terraform Init
       run: terraform init
