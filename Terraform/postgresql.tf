@@ -43,6 +43,7 @@ resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_my_ip" {
   end_ip_address   = "85.221.134.38"
 }
 
+
 # Firewall rule – allow Azure services
 resource "azurerm_postgresql_flexible_server_firewall_rule" "allow_azure" {
   name      = "AllowAzureServices"
