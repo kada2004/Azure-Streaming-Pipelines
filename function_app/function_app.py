@@ -1,10 +1,11 @@
 import logging
+import hashlib
 import azure.functions as func
 import requests
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 app = func.FunctionApp()
 
@@ -37,7 +38,15 @@ def fetchweatherapi(myTimer: func.TimerRequest,eventhub: func.Out[str]) -> None:
         response = requests.get(BASE_URL, params={"appid": API_KEY, "q": city})
         response.raise_for_status()
         data = response.json()
+        # unique identifier
+        event_time = datetime.now(timezone.utc).replace(
+            second=0,microsecond=0)
+        raw_id = f"weather|{city}|{event_time.isoformat()}"
+        event_id = hashlib.sha256(raw_id.encode("utf-8")).hexdigest()  
+            
+        
         event = {
+            "event_id": event_id,
             "event_type": "weather",
             "schema_version": 1,
             "ingested_at": datetime.utcnow().isoformat(),
