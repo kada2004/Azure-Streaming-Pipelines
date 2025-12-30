@@ -68,6 +68,7 @@ for line_number in range(START_LINE, END_LINE + 1):
     #  message 
     message = {
         "event_id": event_id,
+        "event_type": "iot", 
         "event_time": event_time,
         "ingested_at": datetime.now(timezone.utc).isoformat(),
         "source_file": file_name,
