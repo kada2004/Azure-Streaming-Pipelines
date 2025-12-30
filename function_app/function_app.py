@@ -39,8 +39,7 @@ def fetchweatherapi(myTimer: func.TimerRequest,eventhub: func.Out[str]) -> None:
         response.raise_for_status()
         data = response.json()
         # unique identifier
-        event_time = datetime.now(timezone.utc).replace(
-            second=0,microsecond=0)
+        event_time = datetime.fromtimestamp(data["dt"], tz=timezone.utc).replace(microsecond=0)
         raw_id = f"weather|{city}|{event_time.isoformat()}"
         event_id = hashlib.sha256(raw_id.encode("utf-8")).hexdigest()  
             
@@ -49,7 +48,8 @@ def fetchweatherapi(myTimer: func.TimerRequest,eventhub: func.Out[str]) -> None:
             "event_id": event_id,
             "event_type": "weather",
             "schema_version": 1,
-            "ingested_at": datetime.utcnow().isoformat(),
+            "event_time": event_time.isoformat(),
+            "ingested_at": datetime.now(timezone.utc).isoformat(),
             "payload": data
         }
         #send to evenhub
