@@ -3,6 +3,9 @@ resource "azurerm_stream_analytics_job" "stream_analytics" {
   name                = "asa-${local.project_prefix}-${local.project_name}"
   resource_group_name = azurerm_resource_group.rg.name
   location            = var.location
+  identity {
+    type = "SystemAssigned"
+  }
 
   compatibility_level                      = "1.2"
   data_locale                              = "en-GB"
@@ -28,3 +31,21 @@ QUERY
     ignore_changes = [transformation_query]
   }
 }
+
+resource "azurerm_stream_analytics_stream_input_eventhub" "input_eventhub" {
+  name                      = "inputEventHub"
+  stream_analytics_job_name = azurerm_stream_analytics_job.stream_analytics.name
+  resource_group_name       = azurerm_resource_group.rg.name
+
+  servicebus_namespace = azurerm_eventhub_namespace.streaming_timeseries.name
+  eventhub_name        = azurerm_eventhub.streaming01.name
+
+  authentication_mode = "Msi"
+
+  serialization {
+    type     = "Json"
+    encoding = "UTF8"
+  }
+}
+
+
