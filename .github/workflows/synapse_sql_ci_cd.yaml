@@ -14,9 +14,8 @@ permissions:
   contents: read
 
 jobs:
-
   setup:
-    name: Setup Azure & Tools
+    name: Setup Azure & Tools (Token Only)
     runs-on: ubuntu-latest
     outputs:
       sql-access-token: ${{ steps.acquire-token.outputs.token }}
@@ -36,16 +35,6 @@ jobs:
         echo "ARM_SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .subscriptionId)" >> $GITHUB_ENV
         echo "ARM_TENANT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .tenantId)" >> $GITHUB_ENV
 
-    - name: Install sqlcmd
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y curl apt-transport-https gnupg
-        curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-        curl https://packages.microsoft.com/config/ubuntu/22.04/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
-        sudo apt-get update
-        sudo apt-get install -y mssql-tools18 unixodbc-dev
-        echo "/opt/mssql-tools18/bin" >> $GITHUB_PATH
-
     - name: Acquire Azure AD token for Synapse SQL
       id: acquire-token
       run: |
@@ -62,12 +51,26 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Azure Login (Service Principal)
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Install sqlcmd
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl gnupg
+        curl https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+        curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+        sudo apt-get update
+        sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
+        echo "/opt/mssql-tools18/bin" >> $GITHUB_PATH
+
     - name: Run validation on SQL scripts
       env:
         SQL_ACCESS_TOKEN: ${{ needs.setup.outputs.sql-access-token }}
       run: |
         echo "Validating SQL scripts in synapse/sql/"
-
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Validating $file ==="
           sqlcmd \
@@ -78,7 +81,7 @@ jobs:
             -P "$SQL_ACCESS_TOKEN" \
             -i "$file" \
             -b \
-            -m 1  # Show only error messages
+            -m 1
           if [ $? -ne 0 ]; then
             echo "::error file=$file::Validation failed"
             exit 1
@@ -94,6 +97,11 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    - name: Azure Login (Service Principal)
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
     - name: Resume Dedicated SQL Pool (if paused)
       run: |
         echo "Resuming SQL pool if paused..."
@@ -101,6 +109,16 @@ jobs:
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
           --name ${{ secrets.SYNAPSE_SQL_POOL }}
+
+    - name: Install sqlcmd
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl gnupg
+        curl https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+        curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+        sudo apt-get update
+        sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
+        echo "/opt/mssql-tools18/bin" >> $GITHUB_PATH
 
     - name: Deploy SQL scripts
       env:
@@ -123,12 +141,3 @@ jobs:
             exit 1
           fi
         done
-    - name: Resume Dedicated SQL Pool (if paused)
-      run: |
-        STATUS=$(az synapse sql pool show --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} --name ${{ secrets.SYNAPSE_SQL_POOL }} --query status -o tsv)
-        if [[ "$STATUS" == "Paused" ]]; then
-          echo "Pool is paused, resuming..."
-          az synapse sql pool resume --resource-group ... --workspace-name ... --name ...
-        else
-          echo "Pool is already $STATUS, no resume needed."
-        fi
