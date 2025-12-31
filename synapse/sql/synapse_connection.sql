@@ -1,3 +1,3 @@
---- one time connection
+--- one time 
 CREATE DATABASE SCOPED CREDENTIAL SynapseMI
 WITH IDENTITY = 'Managed Identity';
