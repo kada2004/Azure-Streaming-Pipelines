@@ -14,32 +14,10 @@ permissions:
   contents: read
 
 jobs:
-  setup:
-    name: Setup Azure Login & SQL Token
-    runs-on: ubuntu-latest
-    outputs:
-      sql-access-token: ${{ steps.acquire-token.outputs.token }}
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Azure Login (Service Principal)
-      uses: azure/login@v2
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    - name: Acquire Azure AD access token for SQL
-      id: acquire-token
-      run: |
-        TOKEN=$(az account get-access-token \
-          --resource https://database.windows.net/ \
-          --query accessToken -o tsv)
-        echo "token=$TOKEN" >> $GITHUB_OUTPUT
-
   validate:
     name: Validate Synapse SQL Scripts
-    needs: setup
     runs-on: ubuntu-latest
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -65,9 +43,14 @@ jobs:
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
           --name ${{ secrets.SYNAPSE_SQL_POOL }}
 
-    - name: Validate SQL scripts (AAD access token)
-      env:
-        SQLCMDACCESS_TOKEN: ${{ needs.setup.outputs.sql-access-token }}
+    - name: Acquire SQL access token
+      run: |
+        TOKEN=$(az account get-access-token \
+          --resource https://database.windows.net/ \
+          --query accessToken -o tsv)
+        echo "SQLCMDACCESS_TOKEN=$TOKEN" >> $GITHUB_ENV
+
+    - name: Validate SQL scripts
       run: |
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Validating $file ==="
@@ -83,9 +66,10 @@ jobs:
 
   deploy:
     name: Deploy SQL to Synapse
-    needs: [ setup, validate ]
+    needs: validate
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -94,13 +78,6 @@ jobs:
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    - name: Resume Dedicated SQL Pool
-      run: |
-        az synapse sql pool resume \
-          --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
-          --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
-          --name ${{ secrets.SYNAPSE_SQL_POOL }}
 
     - name: Install sqlcmd (mssql-tools18)
       run: |
@@ -111,9 +88,21 @@ jobs:
         sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
         echo "/opt/mssql-tools18/bin" >> $GITHUB_PATH
 
-    - name: Deploy SQL scripts (AAD access token)
-      env:
-        SQLCMDACCESS_TOKEN: ${{ needs.setup.outputs.sql-access-token }}
+    - name: Resume Dedicated SQL Pool
+      run: |
+        az synapse sql pool resume \
+          --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
+          --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
+          --name ${{ secrets.SYNAPSE_SQL_POOL }}
+
+    - name: Acquire SQL access token
+      run: |
+        TOKEN=$(az account get-access-token \
+          --resource https://database.windows.net/ \
+          --query accessToken -o tsv)
+        echo "SQLCMDACCESS_TOKEN=$TOKEN" >> $GITHUB_ENV
+
+    - name: Deploy SQL scripts
       run: |
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Deploying $file ==="
@@ -127,7 +116,7 @@ jobs:
             -C
         done
 
-    - name: Pause Dedicated SQL Pool (cost saving)
+    - name: Pause Dedicated SQL Pool
       if: always()
       run: |
         az synapse sql pool pause \
