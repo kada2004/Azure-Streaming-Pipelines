@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   setup:
-    name: Setup Azure & Tools (Token Only)
+    name: Setup Azure Login & Token
     runs-on: ubuntu-latest
     outputs:
       sql-access-token: ${{ steps.acquire-token.outputs.token }}
@@ -28,14 +28,14 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Set ARM environment variables directly
+    - name: Set ARM environment variables
       run: |
         echo "ARM_CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientId)" >> $GITHUB_ENV
         echo "ARM_CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientSecret)" >> $GITHUB_ENV
         echo "ARM_SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .subscriptionId)" >> $GITHUB_ENV
         echo "ARM_TENANT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .tenantId)" >> $GITHUB_ENV
 
-    - name: Acquire Azure AD token for Synapse SQL
+    - name: Acquire Azure AD access token for SQL
       id: acquire-token
       run: |
         TOKEN=$(az account get-access-token \
@@ -51,12 +51,12 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Azure Login (Service Principal)
+    - name: Azure Login
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Install sqlcmd (official Microsoft method)
+    - name: Install sqlcmd
       run: |
         curl -sSL -O https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb
         sudo dpkg -i packages-microsoft-prod.deb
@@ -65,22 +65,29 @@ jobs:
         sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
         echo "/opt/mssql-tools18/bin" >> $GITHUB_PATH
 
-    - name: Run validation on SQL scripts
+    - name: Resume Dedicated SQL Pool (for validation)
+      run: |
+        echo "Resuming SQL pool for validation..."
+        az synapse sql pool resume \
+          --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
+          --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
+          --name ${{ secrets.SYNAPSE_SQL_POOL }}
+
+    - name: Validate SQL scripts
       env:
         SQL_ACCESS_TOKEN: ${{ needs.setup.outputs.sql-access-token }}
       run: |
+        export SQLCMDPASSWORD="$SQL_ACCESS_TOKEN"
         echo "Validating SQL scripts in synapse/sql/"
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Validating $file ==="
           sqlcmd \
             -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
             -d ${{ secrets.SYNAPSE_SQL_POOL }} \
-            -G \
-            -U "$ARM_CLIENT_ID" \
-            -P "$SQL_ACCESS_TOKEN" \
             -i "$file" \
             -b \
-            -m 1
+            -m 1 \
+            -l 60
           if [ $? -ne 0 ]; then
             echo "::error file=$file::Validation failed"
             exit 1
@@ -101,15 +108,15 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Resume Dedicated SQL Pool (if paused)
+    - name: Resume Dedicated SQL Pool
       run: |
-        echo "Resuming SQL pool (idempotent if already online)..."
+        echo "Resuming SQL pool (idempotent if already online)"
         az synapse sql pool resume \
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
           --name ${{ secrets.SYNAPSE_SQL_POOL }}
 
-    - name: Install sqlcmd (official Microsoft method)
+    - name: Install sqlcmd (Microsoft official method)
       run: |
         curl -sSL -O https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb
         sudo dpkg -i packages-microsoft-prod.deb
@@ -122,20 +129,28 @@ jobs:
       env:
         SQL_ACCESS_TOKEN: ${{ needs.setup.outputs.sql-access-token }}
       run: |
+        export SQLCMDPASSWORD="$SQL_ACCESS_TOKEN"
         echo "Deploying SQL scripts to ${{ secrets.SYNAPSE_SQL_ENDPOINT }} / ${{ secrets.SYNAPSE_SQL_POOL }}"
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Deploying $file ==="
           sqlcmd \
             -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
             -d ${{ secrets.SYNAPSE_SQL_POOL }} \
-            -G \
-            -U "$ARM_CLIENT_ID" \
-            -P "$SQL_ACCESS_TOKEN" \
             -i "$file" \
             -b \
-            -m 1
+            -m 1 \
+            -l 60
           if [ $? -ne 0 ]; then
             echo "::error file=$file::Deployment failed"
             exit 1
           fi
         done
+
+    - name: Pause Dedicated SQL Pool (cost saving)
+      if: always()
+      run: |
+        echo "Pausing SQL pool to save costs..."
+        az synapse sql pool pause \
+          --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
+          --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
+          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Pause skipped  paused"
