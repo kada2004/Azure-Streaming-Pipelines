@@ -56,12 +56,11 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Install sqlcmd
+    - name: Install sqlcmd (official Microsoft method)
       run: |
-        sudo apt-get update
-        sudo apt-get install -y curl gnupg
-        curl https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor --batch -o /usr/share/keyrings/microsoft-prod.gpg
-        curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+        curl -sSL -O https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb
+        sudo dpkg -i packages-microsoft-prod.deb
+        rm packages-microsoft-prod.deb
         sudo apt-get update
         sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
         echo "/opt/mssql-tools18/bin" >> $GITHUB_PATH
@@ -110,12 +109,11 @@ jobs:
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
           --name ${{ secrets.SYNAPSE_SQL_POOL }}
 
-    - name: Install sqlcmd
+    - name: Install sqlcmd (official Microsoft method)
       run: |
-        sudo apt-get update
-        sudo apt-get install -y curl gnupg
-        curl https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor --batch -o /usr/share/keyrings/microsoft-prod.gpg
-        curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+        curl -sSL -O https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb
+        sudo dpkg -i packages-microsoft-prod.deb
+        rm packages-microsoft-prod.deb
         sudo apt-get update
         sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
         echo "/opt/mssql-tools18/bin" >> $GITHUB_PATH
