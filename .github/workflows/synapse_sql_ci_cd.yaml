@@ -23,7 +23,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Azure Login (Service Principal)
+    - name: Azure Login
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
@@ -73,26 +73,30 @@ jobs:
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
           --name ${{ secrets.SYNAPSE_SQL_POOL }}
 
-    - name: Validate SQL scripts
+    - name: Validate SQL scripts (using access token)
       env:
         SQL_ACCESS_TOKEN: ${{ needs.setup.outputs.sql-access-token }}
       run: |
-        export SQLCMDPASSWORD="$SQL_ACCESS_TOKEN"
+        # Create token file in required UTF-16LE format (no BOM)
+        echo -n "$SQL_ACCESS_TOKEN" | iconv -t UTF-16LE > token.txt
         echo "Validating SQL scripts in synapse/sql/"
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Validating $file ==="
           sqlcmd \
             -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
             -d ${{ secrets.SYNAPSE_SQL_POOL }} \
+            -G \
+            -P @token.txt \
             -i "$file" \
             -b \
             -m 1 \
-            -l 60
+            -l 120
           if [ $? -ne 0 ]; then
             echo "::error file=$file::Validation failed"
             exit 1
           fi
         done
+        rm token.txt
 
   deploy:
     name: Deploy SQL to Synapse
@@ -103,20 +107,20 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Azure Login (Service Principal)
+    - name: Azure Login
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: Resume Dedicated SQL Pool
       run: |
-        echo "Resuming SQL pool (idempotent if already online)"
+        echo "Resuming SQL pool..."
         az synapse sql pool resume \
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
           --name ${{ secrets.SYNAPSE_SQL_POOL }}
 
-    - name: Install sqlcmd (Microsoft official method)
+    - name: Install sqlcmd
       run: |
         curl -sSL -O https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb
         sudo dpkg -i packages-microsoft-prod.deb
@@ -129,28 +133,32 @@ jobs:
       env:
         SQL_ACCESS_TOKEN: ${{ needs.setup.outputs.sql-access-token }}
       run: |
-        export SQLCMDPASSWORD="$SQL_ACCESS_TOKEN"
+        # Create token file in required UTF-16LE format (no BOM)
+        echo -n "$SQL_ACCESS_TOKEN" | iconv -t UTF-16LE > token.txt
         echo "Deploying SQL scripts to ${{ secrets.SYNAPSE_SQL_ENDPOINT }} / ${{ secrets.SYNAPSE_SQL_POOL }}"
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Deploying $file ==="
           sqlcmd \
             -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
             -d ${{ secrets.SYNAPSE_SQL_POOL }} \
+            -G \
+            -P @token.txt \
             -i "$file" \
             -b \
             -m 1 \
-            -l 60
+            -l 120
           if [ $? -ne 0 ]; then
             echo "::error file=$file::Deployment failed"
             exit 1
           fi
         done
+        rm token.txt
 
-    - name: Pause Dedicated SQL Pool (cost saving)
+    - name: Pause Dedicated SQL Pool
       if: always()
       run: |
-        echo "Pausing SQL pool to save costs..."
+        echo "Pausing SQL pool to save costs"
         az synapse sql pool pause \
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
-          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Pause skipped  paused"
+          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Already paused"
