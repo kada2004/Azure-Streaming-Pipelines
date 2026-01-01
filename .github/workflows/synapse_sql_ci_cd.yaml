@@ -28,13 +28,6 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Set ARM environment variables
-      run: |
-        echo "ARM_CLIENT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientId)" >> $GITHUB_ENV
-        echo "ARM_CLIENT_SECRET=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .clientSecret)" >> $GITHUB_ENV
-        echo "ARM_SUBSCRIPTION_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .subscriptionId)" >> $GITHUB_ENV
-        echo "ARM_TENANT_ID=$(echo '${{ secrets.AZURE_CREDENTIALS }}' | jq -r .tenantId)" >> $GITHUB_ENV
-
     - name: Acquire Azure AD access token for SQL
       id: acquire-token
       run: |
@@ -72,27 +65,21 @@ jobs:
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
           --name ${{ secrets.SYNAPSE_SQL_POOL }}
 
-    - name: Validate SQL scripts
+    - name: Validate SQL scripts (AAD access token)
       env:
-        SQL_ACCESS_TOKEN: ${{ needs.setup.outputs.sql-access-token }}
+        SQLCMDACCESS_TOKEN: ${{ needs.setup.outputs.sql-access-token }}
       run: |
-        echo -n "$SQL_ACCESS_TOKEN" | iconv -t UTF-16LE > token.txt
-
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Validating $file ==="
           sqlcmd \
-            -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
-            -d ${{ secrets.SYNAPSE_SQL_POOL }} \
-            -G \
-            -U "$ARM_CLIENT_ID" \
-            -P @./token.txt \
+            -S "tcp:${{ secrets.SYNAPSE_SQL_ENDPOINT }},1433" \
+            -d "${{ secrets.SYNAPSE_SQL_POOL }}" \
             -i "$file" \
             -b \
             -m 1 \
-            -l 120
+            -l 120 \
+            -C
         done
-
-        rm -f token.txt
 
   deploy:
     name: Deploy SQL to Synapse
@@ -124,27 +111,21 @@ jobs:
         sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
         echo "/opt/mssql-tools18/bin" >> $GITHUB_PATH
 
-    - name: Deploy SQL scripts
+    - name: Deploy SQL scripts (AAD access token)
       env:
-        SQL_ACCESS_TOKEN: ${{ needs.setup.outputs.sql-access-token }}
+        SQLCMDACCESS_TOKEN: ${{ needs.setup.outputs.sql-access-token }}
       run: |
-        echo -n "$SQL_ACCESS_TOKEN" | iconv -t UTF-16LE > token.txt
-
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Deploying $file ==="
           sqlcmd \
-            -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
-            -d ${{ secrets.SYNAPSE_SQL_POOL }} \
-            -G \
-            -U "$ARM_CLIENT_ID" \
-            -P @./token.txt \
+            -S "tcp:${{ secrets.SYNAPSE_SQL_ENDPOINT }},1433" \
+            -d "${{ secrets.SYNAPSE_SQL_POOL }}" \
             -i "$file" \
             -b \
             -m 1 \
-            -l 120
+            -l 120 \
+            -C
         done
-
-        rm -f token.txt
 
     - name: Pause Dedicated SQL Pool (cost saving)
       if: always()
