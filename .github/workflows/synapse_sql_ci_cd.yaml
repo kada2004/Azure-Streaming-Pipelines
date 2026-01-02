@@ -17,87 +17,75 @@ jobs:
   validate:
     name: Validate Synapse SQL Scripts
     runs-on: ubuntu-latest
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Azure Login
+    - name: Azure Login (for pool management)
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Install sqlcmd (mssql-tools18)
+    - name: Install go-sqlcmd
       run: |
-        curl -sSL -O https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb
-        sudo dpkg -i packages-microsoft-prod.deb
-        rm packages-microsoft-prod.deb
-        sudo apt-get update
-        sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
-        echo "/opt/mssql-tools18/bin" >> $GITHUB_PATH
+        curl -L https://github.com/microsoft/go-sqlcmd/releases/latest/download/sqlcmd-linux-amd64.tar.bz2 -o sqlcmd.tar.bz2
+        tar -xjf sqlcmd.tar.bz2
+        sudo mv sqlcmd /usr/local/bin/sqlcmd
+        sqlcmd version  # Verify installation
 
-    - name: Resume Dedicated SQL Pool (validation)
+    - name: Resume Dedicated SQL Pool (for validation)
       run: |
         az synapse sql pool resume \
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
           --name ${{ secrets.SYNAPSE_SQL_POOL }}
 
-    - name: Acquire SQL access token
-      id: token
-      run: |
-        TOKEN=$(az account get-access-token \
-          --resource https://database.windows.net/ \
-          --query accessToken -o tsv)
-        echo "token=$TOKEN" >> $GITHUB_OUTPUT
-
     - name: Validate SQL scripts
-      env:
-        TOKEN: ${{ steps.token.outputs.token }}
       run: |
-        printf "%s" "$TOKEN" | iconv -t UTF-16LE > token.txt
-
         echo "Validating SQL scripts in synapse/sql/"
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Validating $file ==="
           sqlcmd \
             -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
             -d ${{ secrets.SYNAPSE_SQL_POOL }} \
-            -G \
-            -P @token.txt \
+            --authentication-method ActiveDirectoryServicePrincipal \
             -i "$file" \
             -b \
-            -m 1 \
-            -l 120 \
-            -C
+            -l 120
           if [ $? -ne 0 ]; then
             echo "::error file=$file::Validation failed"
             exit 1
           fi
         done
-        rm -f token.txt
 
   deploy:
     name: Deploy SQL to Synapse
     needs: validate
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Azure Login
+    - name: Azure Login (for pool management)
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Install sqlcmd (mssql-tools18)
+    - name: Install go-sqlcmd
       run: |
-        curl -sSL -O https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb
-        sudo dpkg -i packages-microsoft-prod.deb
-        rm packages-microsoft-prod.deb
-        sudo apt-get update
-        sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
-        echo "/opt/mssql-tools18/bin" >> $GITHUB_PATH
+        curl -L https://github.com/microsoft/go-sqlcmd/releases/latest/download/sqlcmd-linux-amd64.tar.bz2 -o sqlcmd.tar.bz2
+        tar -xjf sqlcmd.tar.bz2
+        sudo mv sqlcmd /usr/local/bin/sqlcmd
+        sqlcmd version
 
     - name: Resume Dedicated SQL Pool
       run: |
@@ -106,40 +94,25 @@ jobs:
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
           --name ${{ secrets.SYNAPSE_SQL_POOL }}
 
-    - name: Acquire SQL access token
-      id: token
-      run: |
-        TOKEN=$(az account get-access-token \
-          --resource https://database.windows.net/ \
-          --query accessToken -o tsv)
-        echo "token=$TOKEN" >> $GITHUB_OUTPUT
-
     - name: Deploy SQL scripts
-      env:
-        TOKEN: ${{ steps.token.outputs.token }}
       run: |
-        printf "%s" "$TOKEN" | iconv -t UTF-16LE > token.txt
-
+        echo "Deploying SQL scripts..."
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Deploying $file ==="
           sqlcmd \
             -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
             -d ${{ secrets.SYNAPSE_SQL_POOL }} \
-            -G \
-            -P @token.txt \
+            --authentication-method ActiveDirectoryServicePrincipal \
             -i "$file" \
             -b \
-            -m 1 \
-            -l 120 \
-            -C
+            -l 120
           if [ $? -ne 0 ]; then
             echo "::error file=$file::Deployment failed"
             exit 1
           fi
         done
-        rm -f token.txt
 
-    - name: Pause Dedicated SQL Pool
+    - name: Pause Dedicated SQL Pool (cost saving)
       if: always()
       run: |
         az synapse sql pool pause \
