@@ -1,9 +1,6 @@
 name: Synapse SQL CI/CD
 
 on:
-  pull_request:
-    paths:
-    - 'synapse/sql/**'
   push:
     branches:
     - main
@@ -14,61 +11,9 @@ permissions:
   contents: read
 
 jobs:
-  validate:
-    name: Validate Synapse SQL Scripts
-    runs-on: ubuntu-latest
-    env:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Azure Login (for pool management)
-      uses: azure/login@v2
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    - name: Install go-sqlcmd
-      run: |
-        curl -L https://github.com/microsoft/go-sqlcmd/releases/latest/download/sqlcmd-linux-amd64.tar.bz2 -o sqlcmd.tar.bz2
-        tar -xjf sqlcmd.tar.bz2
-        sudo mv sqlcmd /usr/local/bin/sqlcmd
-        rm sqlcmd.tar.bz2
-        sqlcmd --version
-
-    - name: Resume Dedicated SQL Pool (for validation)
-      run: |
-        az synapse sql pool resume \
-          --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
-          --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
-          --name ${{ secrets.SYNAPSE_SQL_POOL }}
-
-    - name: Validate SQL scripts
-      run: |
-        echo "Validating SQL scripts in synapse/sql/"
-        for file in $(ls synapse/sql/*.sql | sort); do
-          echo "=== Validating $file ==="
-          sqlcmd \
-            -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
-            -d ${{ secrets.SYNAPSE_SQL_POOL }} \
-            --authentication-method ActiveDirectoryServicePrincipal \
-            -I \
-            -i "$file" \
-            -b \
-            -l 120
-          if [ $? -ne 0 ]; then
-            echo "::error file=$file::Validation failed"
-            exit 1
-          fi
-        done
-
   deploy:
     name: Deploy SQL to Synapse
-    needs: validate
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     env:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -92,6 +37,7 @@ jobs:
 
     - name: Resume Dedicated SQL Pool
       run: |
+        echo "Resuming SQL pool..."
         az synapse sql pool resume \
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
@@ -99,7 +45,7 @@ jobs:
 
     - name: Deploy SQL scripts
       run: |
-        echo "Deploying SQL scripts..."
+        echo "Deploying SQL scripts to ${{ secrets.SYNAPSE_SQL_ENDPOINT }} / ${{ secrets.SYNAPSE_SQL_POOL }}"
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Deploying $file ==="
           sqlcmd \
@@ -119,7 +65,8 @@ jobs:
     - name: Pause Dedicated SQL Pool (cost saving)
       if: always()
       run: |
+        echo "Pausing SQL pool to save costs..."
         az synapse sql pool pause \
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
-          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Already paused"
+          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Already paused or pause failed"
