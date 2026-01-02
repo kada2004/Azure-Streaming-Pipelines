@@ -17,7 +17,6 @@ jobs:
   validate:
     name: Validate Synapse SQL Scripts
     runs-on: ubuntu-latest
-
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -44,32 +43,43 @@ jobs:
           --name ${{ secrets.SYNAPSE_SQL_POOL }}
 
     - name: Acquire SQL access token
+      id: token
       run: |
-        TOKEN=$(az account get-access-token \
-          --resource https://database.windows.net/ \
-          --query accessToken -o tsv)
-        echo "SQLCMDACCESS_TOKEN=$TOKEN" >> $GITHUB_ENV
+        TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
+        echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
     - name: Validate SQL scripts
+      env:
+        ACCESS_TOKEN: ${{ steps.token.outputs.token }}
       run: |
+        # Create token file in UTF-16LE format (required for sqlcmd on Linux)
+        printf "%s" "$ACCESS_TOKEN" | iconv -t UTF-16LE > token.txt
+
+        echo "Validating SQL scripts in synapse/sql/"
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Validating $file ==="
           sqlcmd \
-            -S "tcp:${{ secrets.SYNAPSE_SQL_ENDPOINT }},1433" \
-            -d "${{ secrets.SYNAPSE_SQL_POOL }}" \
+            -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
+            -d ${{ secrets.SYNAPSE_SQL_POOL }} \
+            -G \
+            -P @token.txt \
             -i "$file" \
             -b \
             -m 1 \
             -l 120 \
             -C
+          if [ $? -ne 0 ]; then
+            echo "::error file=$file::Validation failed"
+            exit 1
+          fi
         done
+        rm token.txt
 
   deploy:
     name: Deploy SQL to Synapse
     needs: validate
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -96,30 +106,41 @@ jobs:
           --name ${{ secrets.SYNAPSE_SQL_POOL }}
 
     - name: Acquire SQL access token
+      id: token
       run: |
-        TOKEN=$(az account get-access-token \
-          --resource https://database.windows.net/ \
-          --query accessToken -o tsv)
-        echo "SQLCMDACCESS_TOKEN=$TOKEN" >> $GITHUB_ENV
+        TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
+        echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
     - name: Deploy SQL scripts
+      env:
+        ACCESS_TOKEN: ${{ steps.token.outputs.token }}
       run: |
+        printf "%s" "$ACCESS_TOKEN" | iconv -t UTF-16LE > token.txt
+
+        echo "Deploying SQL scripts..."
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Deploying $file ==="
           sqlcmd \
-            -S "tcp:${{ secrets.SYNAPSE_SQL_ENDPOINT }},1433" \
-            -d "${{ secrets.SYNAPSE_SQL_POOL }}" \
+            -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
+            -d ${{ secrets.SYNAPSE_SQL_POOL }} \
+            -G \
+            -P @token.txt \
             -i "$file" \
             -b \
             -m 1 \
             -l 120 \
             -C
+          if [ $? -ne 0 ]; then
+            echo "::error file=$file::Deployment failed"
+            exit 1
+          fi
         done
+        rm token.txt
 
-    - name: Pause Dedicated SQL Pool
+    - name: Pause Dedicated SQL Pool (cost saving)
       if: always()
       run: |
         az synapse sql pool pause \
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
-          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Already paused"
+          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Already paused or pause failed"
