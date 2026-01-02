@@ -15,7 +15,6 @@ jobs:
     name: Deploy SQL to Synapse (Service Principal)
     runs-on: ubuntu-latest
 
-    # go-sqlcmd reads these automatically
     env:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -25,7 +24,6 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    # Only needed for pool resume/pause
     - name: Azure Login (ARM)
       uses: azure/login@v2
       with:
@@ -41,7 +39,6 @@ jobs:
 
     - name: Resume Dedicated SQL Pool
       run: |
-        echo "Resuming SQL pool..."
         az synapse sql pool resume \
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
@@ -49,10 +46,10 @@ jobs:
 
     - name: Deploy SQL scripts
       run: |
-        echo "Deploying SQL scripts..."
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Deploying $file ==="
           sqlcmd \
+            --no-interactive \
             -S "tcp:${{ secrets.SYNAPSE_SQL_ENDPOINT }},1433" \
             -d "${{ secrets.SYNAPSE_SQL_POOL }}" \
             --authentication-method ActiveDirectoryServicePrincipal \
@@ -61,10 +58,9 @@ jobs:
             -l 120
         done
 
-    - name: Pause Dedicated SQL Pool (cost saving)
+    - name: Pause Dedicated SQL Pool
       if: always()
       run: |
-        echo "Pausing SQL pool..."
         az synapse sql pool pause \
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
