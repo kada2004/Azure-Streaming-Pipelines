@@ -35,7 +35,8 @@ jobs:
         curl -L https://github.com/microsoft/go-sqlcmd/releases/latest/download/sqlcmd-linux-amd64.tar.bz2 -o sqlcmd.tar.bz2
         tar -xjf sqlcmd.tar.bz2
         sudo mv sqlcmd /usr/local/bin/sqlcmd
-        sqlcmd version  # Verify installation
+        rm sqlcmd.tar.bz2
+        sqlcmd --version
 
     - name: Resume Dedicated SQL Pool (for validation)
       run: |
@@ -85,7 +86,8 @@ jobs:
         curl -L https://github.com/microsoft/go-sqlcmd/releases/latest/download/sqlcmd-linux-amd64.tar.bz2 -o sqlcmd.tar.bz2
         tar -xjf sqlcmd.tar.bz2
         sudo mv sqlcmd /usr/local/bin/sqlcmd
-        sqlcmd version
+        rm sqlcmd.tar.bz2
+        sqlcmd --version
 
     - name: Resume Dedicated SQL Pool
       run: |
@@ -96,7 +98,7 @@ jobs:
 
     - name: Deploy SQL scripts
       run: |
-        echo "Deploying SQL scripts..."
+        echo "Deploying SQL scripts to ${{ secrets.SYNAPSE_SQL_ENDPOINT }} / ${{ secrets.SYNAPSE_SQL_POOL }}"
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Deploying $file ==="
           sqlcmd \
@@ -118,4 +120,4 @@ jobs:
         az synapse sql pool pause \
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
-          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Already paused"
+          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Already paused or pause failed"
