@@ -54,6 +54,7 @@ jobs:
             -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
             -d ${{ secrets.SYNAPSE_SQL_POOL }} \
             --authentication-method ActiveDirectoryServicePrincipal \
+            -I \
             -i "$file" \
             -b \
             -l 120
@@ -98,13 +99,14 @@ jobs:
 
     - name: Deploy SQL scripts
       run: |
-        echo "Deploying SQL scripts to ${{ secrets.SYNAPSE_SQL_ENDPOINT }} / ${{ secrets.SYNAPSE_SQL_POOL }}"
+        echo "Deploying SQL scripts..."
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Deploying $file ==="
           sqlcmd \
             -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
             -d ${{ secrets.SYNAPSE_SQL_POOL }} \
             --authentication-method ActiveDirectoryServicePrincipal \
+            -I \
             -i "$file" \
             -b \
             -l 120
@@ -120,4 +122,4 @@ jobs:
         az synapse sql pool pause \
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
-          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Already paused or pause failed"
+          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Already paused"
