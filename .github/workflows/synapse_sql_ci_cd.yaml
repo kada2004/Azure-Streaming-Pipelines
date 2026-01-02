@@ -12,17 +12,21 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy SQL to Synapse
+    name: Deploy SQL to Synapse (Service Principal)
     runs-on: ubuntu-latest
+
+    # go-sqlcmd reads these automatically
     env:
       AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Azure Login (for pool management)
+    # Only needed for pool resume/pause
+    - name: Azure Login (ARM)
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
@@ -45,28 +49,23 @@ jobs:
 
     - name: Deploy SQL scripts
       run: |
-        echo "Deploying SQL scripts to ${{ secrets.SYNAPSE_SQL_ENDPOINT }} / ${{ secrets.SYNAPSE_SQL_POOL }}"
+        echo "Deploying SQL scripts..."
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Deploying $file ==="
           sqlcmd \
-            -S ${{ secrets.SYNAPSE_SQL_ENDPOINT }} \
-            -d ${{ secrets.SYNAPSE_SQL_POOL }} \
+            -S "tcp:${{ secrets.SYNAPSE_SQL_ENDPOINT }},1433" \
+            -d "${{ secrets.SYNAPSE_SQL_POOL }}" \
             --authentication-method ActiveDirectoryServicePrincipal \
-            -I \
             -i "$file" \
             -b \
             -l 120
-          if [ $? -ne 0 ]; then
-            echo "::error file=$file::Deployment failed"
-            exit 1
-          fi
         done
 
     - name: Pause Dedicated SQL Pool (cost saving)
       if: always()
       run: |
-        echo "Pausing SQL pool to save costs..."
+        echo "Pausing SQL pool..."
         az synapse sql pool pause \
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
-          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Already paused or pause failed"
+          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Already paused"
