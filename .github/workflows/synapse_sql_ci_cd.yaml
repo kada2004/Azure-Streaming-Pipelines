@@ -45,15 +45,16 @@ jobs:
     - name: Acquire SQL access token
       id: token
       run: |
-        TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
+        TOKEN=$(az account get-access-token \
+          --resource https://database.windows.net/ \
+          --query accessToken -o tsv)
         echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
     - name: Validate SQL scripts
       env:
-        ACCESS_TOKEN: ${{ steps.token.outputs.token }}
+        TOKEN: ${{ steps.token.outputs.token }}
       run: |
-        # Create token file in UTF-16LE format (required for sqlcmd on Linux)
-        printf "%s" "$ACCESS_TOKEN" | iconv -t UTF-16LE > token.txt
+        printf "%s" "$TOKEN" | iconv -t UTF-16LE > token.txt
 
         echo "Validating SQL scripts in synapse/sql/"
         for file in $(ls synapse/sql/*.sql | sort); do
@@ -73,7 +74,7 @@ jobs:
             exit 1
           fi
         done
-        rm token.txt
+        rm -f token.txt
 
   deploy:
     name: Deploy SQL to Synapse
@@ -108,16 +109,17 @@ jobs:
     - name: Acquire SQL access token
       id: token
       run: |
-        TOKEN=$(az account get-access-token --resource https://database.windows.net/ --query accessToken -o tsv)
+        TOKEN=$(az account get-access-token \
+          --resource https://database.windows.net/ \
+          --query accessToken -o tsv)
         echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
     - name: Deploy SQL scripts
       env:
-        ACCESS_TOKEN: ${{ steps.token.outputs.token }}
+        TOKEN: ${{ steps.token.outputs.token }}
       run: |
-        printf "%s" "$ACCESS_TOKEN" | iconv -t UTF-16LE > token.txt
+        printf "%s" "$TOKEN" | iconv -t UTF-16LE > token.txt
 
-        echo "Deploying SQL scripts..."
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Deploying $file ==="
           sqlcmd \
@@ -135,12 +137,12 @@ jobs:
             exit 1
           fi
         done
-        rm token.txt
+        rm -f token.txt
 
-    - name: Pause Dedicated SQL Pool (cost saving)
+    - name: Pause Dedicated SQL Pool
       if: always()
       run: |
         az synapse sql pool pause \
           --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
-          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Already paused or pause failed"
+          --name ${{ secrets.SYNAPSE_SQL_POOL }} || echo "Already paused"
