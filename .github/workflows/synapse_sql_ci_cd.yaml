@@ -15,9 +15,9 @@ permissions:
 
 jobs:
   validate:
-    name: Validate SQL code (PR)
+    name: Validate SQL code
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
 
     steps:
     - name: Checkout repository
@@ -75,7 +75,7 @@ jobs:
     name: Deploy SQL code to database
     runs-on: ubuntu-latest
     needs: validate
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
     - name: Checkout repository
