@@ -46,10 +46,12 @@ jobs:
 
     - name: Deploy SQL scripts
       run: |
+        export SQLCMD_NO_INTERACTIVE=1
+
+        echo "Deploying SQL scripts..."
         for file in $(ls synapse/sql/*.sql | sort); do
           echo "=== Deploying $file ==="
           sqlcmd \
-            --no-interactive \
             -S "tcp:${{ secrets.SYNAPSE_SQL_ENDPOINT }},1433" \
             -d "${{ secrets.SYNAPSE_SQL_POOL }}" \
             --authentication-method ActiveDirectoryServicePrincipal \
