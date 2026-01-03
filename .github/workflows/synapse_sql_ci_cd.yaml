@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   validate:
-    name: Validate  SQL code (PR)
+    name: Validate SQL code (PR)
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
 
@@ -54,17 +54,22 @@ jobs:
         $server   = "${{ secrets.SYNAPSE_SQL_ENDPOINT }}"
         $database = "${{ secrets.SYNAPSE_SQL_POOL }}"
 
-        Get-ChildItem synapse/sql/*.sql |
-          Sort-Object Name |
-          ForEach-Object {
-            Write-Host "=== Validating $($_.Name) ==="
-            Invoke-Sqlcmd `
-              -ServerInstance $server `
-              -Database $database `
-              -AccessToken $token `
-              -InputFile $_.FullName `
-              -AbortOnError
-          }
+        if (Test-Path "synapse/sql") {
+            Get-ChildItem synapse/sql/*.sql |
+              Sort-Object Name |
+              ForEach-Object {
+                Write-Host "=== Validating $($_.Name) ==="
+                Invoke-Sqlcmd `
+                  -ServerInstance $server `
+                  -Database $database `
+                  -AccessToken $token `
+                  -InputFile $_.FullName `
+                  -AbortOnError
+              }
+        }
+        else {
+            Write-Host "No synapse/sql folder found — skipping validation"
+        }
 
   deploy:
     name: Deploy SQL code to database
@@ -107,17 +112,22 @@ jobs:
         $server   = "${{ secrets.SYNAPSE_SQL_ENDPOINT }}"
         $database = "${{ secrets.SYNAPSE_SQL_POOL }}"
 
-        Get-ChildItem synapse/sql/*.sql |
-          Sort-Object Name |
-          ForEach-Object {
-            Write-Host "=== Deploying $($_.Name) ==="
-            Invoke-Sqlcmd `
-              -ServerInstance $server `
-              -Database $database `
-              -AccessToken $token `
-              -InputFile $_.FullName `
-              -AbortOnError
-          }
+        if (Test-Path "synapse/sql") {
+            Get-ChildItem synapse/sql/*.sql |
+              Sort-Object Name |
+              ForEach-Object {
+                Write-Host "=== Deploying $($_.Name) ==="
+                Invoke-Sqlcmd `
+                  -ServerInstance $server `
+                  -Database $database `
+                  -AccessToken $token `
+                  -InputFile $_.FullName `
+                  -AbortOnError
+              }
+        }
+        else {
+            Write-Host "No synapse/sql folder found — skipping deployment"
+        }
 
     - name: Pause Dedicated SQL Pool
       if: always()
