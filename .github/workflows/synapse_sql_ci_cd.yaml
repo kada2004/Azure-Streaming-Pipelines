@@ -1,6 +1,9 @@
 name: Synapse SQL CI/CD
 
 on:
+  pull_request:
+    paths:
+    - 'synapse/sql/**'
   push:
     branches:
     - main
@@ -11,9 +14,10 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
-    name: Deploy SQL to Synapse (PowerShell)
+  validate:
+    name: Validate  SQL code (PR)
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
 
     steps:
     - name: Checkout repository
@@ -36,10 +40,9 @@ jobs:
       run: |
         Install-Module SqlServer -Force -Scope CurrentUser -AllowClobber
 
-    - name: Deploy SQL scripts using Access Token
+    - name: Validate SQL scripts
       shell: pwsh
       run: |
-        # Acquire SQL access token
         $token = az account get-access-token `
           --resource https://database.windows.net/ `
           --query accessToken -o tsv
@@ -48,18 +51,73 @@ jobs:
           throw "Failed to acquire SQL access token"
         }
 
-        $server = "${{ secrets.SYNAPSE_SQL_ENDPOINT }}"
+        $server   = "${{ secrets.SYNAPSE_SQL_ENDPOINT }}"
         $database = "${{ secrets.SYNAPSE_SQL_POOL }}"
 
-        Get-ChildItem synapse/sql/*.sql | Sort-Object Name | ForEach-Object {
-          Write-Host "=== Deploying $($_.Name) ==="
-          Invoke-Sqlcmd `
-            -ServerInstance $server `
-            -Database $database `
-            -AccessToken $token `
-            -InputFile $_.FullName `
-            -AbortOnError
+        Get-ChildItem synapse/sql/*.sql |
+          Sort-Object Name |
+          ForEach-Object {
+            Write-Host "=== Validating $($_.Name) ==="
+            Invoke-Sqlcmd `
+              -ServerInstance $server `
+              -Database $database `
+              -AccessToken $token `
+              -InputFile $_.FullName `
+              -AbortOnError
+          }
+
+  deploy:
+    name: Deploy SQL code to database
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Resume Dedicated SQL Pool
+      run: |
+        az synapse sql pool resume \
+          --resource-group ${{ secrets.SYNAPSE_RESOURCE_GROUP }} \
+          --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
+          --name ${{ secrets.SYNAPSE_SQL_POOL }}
+
+    - name: Install PowerShell SQL module
+      shell: pwsh
+      run: |
+        Install-Module SqlServer -Force -Scope CurrentUser -AllowClobber
+
+    - name: Deploy SQL scripts
+      shell: pwsh
+      run: |
+        $token = az account get-access-token `
+          --resource https://database.windows.net/ `
+          --query accessToken -o tsv
+
+        if (-not $token) {
+          throw "Failed to acquire SQL access token"
         }
+
+        $server   = "${{ secrets.SYNAPSE_SQL_ENDPOINT }}"
+        $database = "${{ secrets.SYNAPSE_SQL_POOL }}"
+
+        Get-ChildItem synapse/sql/*.sql |
+          Sort-Object Name |
+          ForEach-Object {
+            Write-Host "=== Deploying $($_.Name) ==="
+            Invoke-Sqlcmd `
+              -ServerInstance $server `
+              -Database $database `
+              -AccessToken $token `
+              -InputFile $_.FullName `
+              -AbortOnError
+          }
 
     - name: Pause Dedicated SQL Pool
       if: always()
