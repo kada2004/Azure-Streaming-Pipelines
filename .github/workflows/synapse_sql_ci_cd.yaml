@@ -12,30 +12,17 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy SQL to Synapse (Service Principal)
+    name: Deploy SQL to Synapse (PowerShell)
     runs-on: ubuntu-latest
-
-    env:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Azure Login (ARM)
+    - name: Azure Login
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    - name: Install go-sqlcmd
-      run: |
-        curl -L https://github.com/microsoft/go-sqlcmd/releases/latest/download/sqlcmd-linux-amd64.tar.bz2 -o sqlcmd.tar.bz2
-        tar -xjf sqlcmd.tar.bz2
-        sudo mv sqlcmd /usr/local/bin/sqlcmd
-        rm sqlcmd.tar.bz2
-        sqlcmd --version
 
     - name: Resume Dedicated SQL Pool
       run: |
@@ -44,21 +31,35 @@ jobs:
           --workspace-name ${{ secrets.SYNAPSE_WORKSPACE_NAME }} \
           --name ${{ secrets.SYNAPSE_SQL_POOL }}
 
-    - name: Deploy SQL scripts
+    - name: Install PowerShell SQL module
+      shell: pwsh
       run: |
-        export SQLCMD_NO_INTERACTIVE=1
+        Install-Module SqlServer -Force -Scope CurrentUser -AllowClobber
 
-        echo "Deploying SQL scripts..."
-        for file in $(ls synapse/sql/*.sql | sort); do
-          echo "=== Deploying $file ==="
-          sqlcmd \
-            -S "tcp:${{ secrets.SYNAPSE_SQL_ENDPOINT }},1433" \
-            -d "${{ secrets.SYNAPSE_SQL_POOL }}" \
-            --authentication-method ActiveDirectoryServicePrincipal \
-            -i "$file" \
-            -b \
-            -l 120
-        done
+    - name: Deploy SQL scripts using Access Token
+      shell: pwsh
+      run: |
+        # Acquire SQL access token
+        $token = az account get-access-token `
+          --resource https://database.windows.net/ `
+          --query accessToken -o tsv
+
+        if (-not $token) {
+          throw "Failed to acquire SQL access token"
+        }
+
+        $server = "${{ secrets.SYNAPSE_SQL_ENDPOINT }}"
+        $database = "${{ secrets.SYNAPSE_SQL_POOL }}"
+
+        Get-ChildItem synapse/sql/*.sql | Sort-Object Name | ForEach-Object {
+          Write-Host "=== Deploying $($_.Name) ==="
+          Invoke-Sqlcmd `
+            -ServerInstance $server `
+            -Database $database `
+            -AccessToken $token `
+            -InputFile $_.FullName `
+            -AbortOnError
+        }
 
     - name: Pause Dedicated SQL Pool
       if: always()
