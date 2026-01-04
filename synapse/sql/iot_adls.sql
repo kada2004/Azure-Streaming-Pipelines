@@ -6,7 +6,7 @@ IF NOT EXISTS (
 BEGIN
     CREATE EXTERNAL DATA SOURCE IOT_ADLS
     WITH (
-        LOCATION = 'https://stdatastorequality.dfs.core.windows.net/iot-stream',
+        LOCATION = 'abfss://iot-stream@stdatastorequality.dfs.core.windows.net',
         CREDENTIAL = SynapseMI
     );
 END;
