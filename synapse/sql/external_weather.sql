@@ -9,3 +9,4 @@ BEGIN
         FILE_FORMAT = JsonLineFormat
     );
 END;
+
