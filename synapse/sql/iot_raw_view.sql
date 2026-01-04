@@ -1,7 +1,8 @@
 IF OBJECT_ID('dbo.vw_iot_raw', 'V') IS NOT NULL
 BEGIN
-    EXEC('DROP VIEW dbo.vw_iot_raw');
+    DROP VIEW dbo.vw_iot_raw;
 END;
+GO
 
 CREATE VIEW dbo.vw_iot_raw
 AS
