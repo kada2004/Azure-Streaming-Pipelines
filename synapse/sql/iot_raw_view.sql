@@ -7,18 +7,31 @@ GO
 CREATE VIEW dbo.vw_iot_raw
 AS
 SELECT
-    CAST(SUBSTRING(payload, 1, 19) AS datetime2) AS measurement_time,
-    CAST(PARSENAME(REPLACE(payload, ',', '.'), 11) AS int) AS temperature,
-    CAST(PARSENAME(REPLACE(payload, ',', '.'), 10) AS int) AS humidity,
-    CAST(PARSENAME(REPLACE(payload, ',', '.'), 9)  AS int) AS water_level,
-    CAST(PARSENAME(REPLACE(payload, ',', '.'), 8)  AS int) AS nitrogen,
-    CAST(PARSENAME(REPLACE(payload, ',', '.'), 7)  AS int) AS phosphorus,
-    CAST(PARSENAME(REPLACE(payload, ',', '.'), 6)  AS int) AS potassium
-FROM (
-    SELECT
-        JSON_VALUE(
-            raw_json,
-            '$.payload."date,tempreature,humidity,water_level,N,P,K,Fan_actuator_OFF,Fan_actuator_ON,Watering_plant_pump_OFF,Watering_plant_pump_ON,Water_pump_actuator_OFF,Water_pump_actuator_ON"'
-        ) AS payload
-    FROM dbo.iot_raw_ext
-) s;
+    CAST(j.[0] AS datetime2) AS measurement_time,
+    CAST(j.[1] AS int)       AS temperature,
+    CAST(j.[2] AS int)       AS humidity,
+    CAST(j.[3] AS int)       AS water_level,
+    CAST(j.[4] AS int)       AS nitrogen,
+    CAST(j.[5] AS int)       AS phosphorus,
+    CAST(j.[6] AS int)       AS potassium
+FROM dbo.iot_raw_ext t
+CROSS APPLY (
+    SELECT *
+    FROM OPENJSON(
+        '["' + REPLACE(
+            JSON_VALUE(
+                t.raw_json,
+                '$.payload."date,tempreature,humidity,water_level,N,P,K,Fan_actuator_OFF,Fan_actuator_ON,Watering_plant_pump_OFF,Watering_plant_pump_ON,Water_pump_actuator_OFF,Water_pump_actuator_ON"'
+            ),
+            ',', '","'
+        ) + '"]'
+    )
+) WITH (
+    [0] nvarchar(50),
+    [1] nvarchar(50),
+    [2] nvarchar(50),
+    [3] nvarchar(50),
+    [4] nvarchar(50),
+    [5] nvarchar(50),
+    [6] nvarchar(50)
+) j;
