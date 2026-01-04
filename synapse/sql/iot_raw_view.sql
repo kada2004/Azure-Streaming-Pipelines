@@ -2,7 +2,6 @@ IF OBJECT_ID('dbo.vw_iot_raw', 'V') IS NOT NULL
 BEGIN
     EXEC('DROP VIEW dbo.vw_iot_raw');
 END;
-GO
 
 CREATE VIEW dbo.vw_iot_raw
 AS
@@ -15,18 +14,16 @@ SELECT
     CAST(j.[5] AS int)       AS phosphorus,
     CAST(j.[6] AS int)       AS potassium
 FROM dbo.iot_raw_ext t
-CROSS APPLY (
-    SELECT *
-    FROM OPENJSON(
-        '["' + REPLACE(
-            JSON_VALUE(
-                t.raw_json,
-                '$.payload."date,tempreature,humidity,water_level,N,P,K,Fan_actuator_OFF,Fan_actuator_ON,Watering_plant_pump_OFF,Watering_plant_pump_ON,Water_pump_actuator_OFF,Water_pump_actuator_ON"'
-            ),
-            ',', '","'
-        ) + '"]'
-    )
-) WITH (
+CROSS APPLY OPENJSON(
+    '["' + REPLACE(
+        JSON_VALUE(
+            t.raw_json,
+            '$.payload."date,tempreature,humidity,water_level,N,P,K,Fan_actuator_OFF,Fan_actuator_ON,Watering_plant_pump_OFF,Watering_plant_pump_ON,Water_pump_actuator_OFF,Water_pump_actuator_ON"'
+        ),
+        ',', '","'
+    ) + '"]'
+)
+WITH (
     [0] nvarchar(50),
     [1] nvarchar(50),
     [2] nvarchar(50),
@@ -34,4 +31,4 @@ CROSS APPLY (
     [4] nvarchar(50),
     [5] nvarchar(50),
     [6] nvarchar(50)
-) j;
+) AS j;
