@@ -8,7 +8,7 @@ BEGIN
     WITH (
         FORMAT_TYPE = DELIMITEDTEXT,
         FORMAT_OPTIONS (
-            FIELD_TERMINATOR = '0x0b',
+            FIELD_TERMINATOR = '|',
             STRING_DELIMITER = '0x0b'
         )
     );
