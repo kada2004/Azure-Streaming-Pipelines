@@ -7,18 +7,19 @@ GO
 CREATE VIEW dbo.vw_iot_raw
 AS
 SELECT
-    CAST(SUBSTRING(payload, 1, 19) AS datetime2) AS measurement_time,
-    CAST(PARSENAME(REPLACE(payload, ',', '.'), 11) AS int) AS temperature,
-    CAST(PARSENAME(REPLACE(payload, ',', '.'), 10) AS int) AS humidity,
-    CAST(PARSENAME(REPLACE(payload, ',', '.'), 9)  AS int) AS water_level,
-    CAST(PARSENAME(REPLACE(payload, ',', '.'), 8)  AS int) AS nitrogen,
-    CAST(PARSENAME(REPLACE(payload, ',', '.'), 7)  AS int) AS phosphorus,
-    CAST(PARSENAME(REPLACE(payload, ',', '.'), 6)  AS int) AS potassium
-FROM (
-    SELECT
-        JSON_VALUE(
-            raw_json,
-            '$.payload."date,tempreature,humidity,water_level,N,P,K,Fan_actuator_OFF,Fan_actuator_ON,Watering_plant_pump_OFF,Watering_plant_pump_ON,Water_pump_actuator_OFF,Water_pump_actuator_ON"'
-        ) AS payload
-    FROM dbo.iot_raw_ext
-) s;
+    JSON_VALUE(raw_json, '$.event_id')                                      AS event_id,
+    CAST(JSON_VALUE(raw_json, '$.event_time') AS datetime2)                 AS event_time,
+    CAST(JSON_VALUE(raw_json, '$.payload.measurement_time') AS datetime2)   AS measurement_time,
+    CAST(JSON_VALUE(raw_json, '$.payload.temperature') AS int)              AS temperature,
+    CAST(JSON_VALUE(raw_json, '$.payload.humidity') AS int)                 AS humidity,
+    CAST(JSON_VALUE(raw_json, '$.payload.water_level') AS int)              AS water_level,
+    CAST(JSON_VALUE(raw_json, '$.payload.nitrogen') AS int)                 AS nitrogen,
+    CAST(JSON_VALUE(raw_json, '$.payload.phosphorus') AS int)               AS phosphorus,
+    CAST(JSON_VALUE(raw_json, '$.payload.potassium') AS int)                AS potassium,
+    CAST(JSON_VALUE(raw_json, '$.payload.fan_actuator_off') AS bit)          AS fan_actuator_off,
+    CAST(JSON_VALUE(raw_json, '$.payload.fan_actuator_on') AS bit)           AS fan_actuator_on,
+    CAST(JSON_VALUE(raw_json, '$.payload.watering_pump_off') AS bit)         AS watering_pump_off,
+    CAST(JSON_VALUE(raw_json, '$.payload.watering_pump_on') AS bit)          AS watering_pump_on,
+    CAST(JSON_VALUE(raw_json, '$.payload.water_pump_off') AS bit)            AS water_pump_off,
+    CAST(JSON_VALUE(raw_json, '$.payload.water_pump_on') AS bit)             AS water_pump_on
+FROM dbo.iot_raw_ext;
