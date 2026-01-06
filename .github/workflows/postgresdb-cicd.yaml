@@ -29,28 +29,29 @@ jobs:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: Install PostgreSQL client
-      run: sudo apt-get install -y postgresql-client
+      run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-    - name: Validate SQL scripts
+    - name: Validate SQL scripts (transaction + rollback)
       env:
         PGHOST: ${{ secrets.PG_SERVER_NAME }}.postgres.database.azure.com
         PGDATABASE: ${{ secrets.PG_DATABASE }}
         PGUSER: ${{ secrets.PG_ADMIN_AAD_USER }}
         PGPORT: ${{ secrets.PG_PORT }}
       run: |
-        set -e
+        set -euo pipefail
 
         export PGPASSWORD=$(az account get-access-token \
           --resource https://ossrdbms-aad.database.windows.net \
           --query accessToken -o tsv)
 
         if [ -d "postgres/sql" ]; then
-          find postgres/sql -type f -name "*.sql" | sort | while read file; do
+          find postgres/sql -type f -name "*.sql" | sort | while read -r file; do
             echo "=== Validating $file ==="
-            psql --set ON_ERROR_STOP=on \
-                 --single-transaction \
-                 --file="$file" \
-                 --dry-run
+            psql \
+              --set ON_ERROR_STOP=on \
+              --single-transaction \
+              --file="$file" \
+              --command="ROLLBACK;"
           done
         else
           echo "No postgres/sql folder found — skipping validation"
@@ -72,7 +73,7 @@ jobs:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: Install PostgreSQL client
-      run: sudo apt-get install -y postgresql-client
+      run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
     - name: Deploy SQL scripts
       env:
@@ -81,18 +82,19 @@ jobs:
         PGUSER: ${{ secrets.PG_ADMIN_AAD_USER }}
         PGPORT: ${{ secrets.PG_PORT }}
       run: |
-        set -e
+        set -euo pipefail
 
         export PGPASSWORD=$(az account get-access-token \
           --resource https://ossrdbms-aad.database.windows.net \
           --query accessToken -o tsv)
 
         if [ -d "postgres/sql" ]; then
-          find postgres/sql -type f -name "*.sql" | sort | while read file; do
+          find postgres/sql -type f -name "*.sql" | sort | while read -r file; do
             echo "=== Deploying $file ==="
-            psql --set ON_ERROR_STOP=on \
-                 --single-transaction \
-                 --file="$file"
+            psql \
+              --set ON_ERROR_STOP=on \
+              --single-transaction \
+              --file="$file"
           done
         else
           echo "No postgres/sql folder found — skipping deployment"
