@@ -35,8 +35,9 @@ jobs:
       env:
         PGHOST: ${{ secrets.PG_SERVER_NAME }}.postgres.database.azure.com
         PGDATABASE: ${{ secrets.PG_DATABASE }}
-        PGUSER: ${{ secrets.PG_ADMIN_AAD_USER }}
-        PGPORT: ${{ secrets.PG_PORT }}
+        PGUSER: psqladmin
+        PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+        PGPORT: 5432
         PGSSLMODE: require
       run: |
         set -euo pipefail
@@ -80,8 +81,9 @@ jobs:
       env:
         PGHOST: ${{ secrets.PG_SERVER_NAME }}.postgres.database.azure.com
         PGDATABASE: ${{ secrets.PG_DATABASE }}
-        PGUSER: ${{ secrets.PG_ADMIN_AAD_USER }}
-        PGPORT: ${{ secrets.PG_PORT }}
+        PGUSER: psqladmin
+        PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+        PGPORT: 5432
         PGSSLMODE: require
       run: |
         set -euo pipefail
