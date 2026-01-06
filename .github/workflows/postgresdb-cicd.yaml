@@ -17,89 +17,62 @@ jobs:
   validate:
     name: Validate PostgreSQL SQL
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Azure Login
-      uses: azure/login@v2
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
     - name: Install PostgreSQL client
       run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-    - name: Validate SQL scripts (transaction + rollback)
+    - name: Validate SQL scripts
       env:
-        PGHOST: ${{ secrets.PG_SERVER_NAME }}.postgres.database.azure.com
-        PGDATABASE: ${{ secrets.PG_DATABASE }}
+        PGHOST: azpostgresflexible.postgres.database.azure.com
+        PGPORT: 5432
+        PGDATABASE: postgres
         PGUSER: psqladmin
         PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
-        PGPORT: 5432
         PGSSLMODE: require
       run: |
         set -euo pipefail
 
-        export PGPASSWORD=$(az account get-access-token \
-          --resource https://ossrdbms-aad.database.windows.net \
-          --query accessToken -o tsv)
-
-        if [ -d "postgres/sql" ]; then
-          find postgres/sql -type f -name "*.sql" | sort | while read -r file; do
-            echo "=== Validating $file ==="
-            psql \
-              --set ON_ERROR_STOP=on \
-              --single-transaction \
-              --file="$file" \
-              --command="ROLLBACK;"
-          done
-        else
-          echo "No postgres/sql folder found — skipping validation"
-        fi
+        find postgres/sql -type f -name "*.sql" | sort | while read -r file; do
+          echo "=== Validating $file ==="
+          psql \
+            --set ON_ERROR_STOP=on \
+            --single-transaction \
+            --file="$file" \
+            --command="ROLLBACK;"
+        done
 
   deploy:
     name: Deploy SQL to PostgreSQL
     runs-on: ubuntu-latest
     needs: validate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-
-    - name: Azure Login
-      uses: azure/login@v2
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: Install PostgreSQL client
       run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
     - name: Deploy SQL scripts
       env:
-        PGHOST: ${{ secrets.PG_SERVER_NAME }}.postgres.database.azure.com
-        PGDATABASE: ${{ secrets.PG_DATABASE }}
+        PGHOST: azpostgresflexible.postgres.database.azure.com
+        PGPORT: 5432
+        PGDATABASE: postgres
         PGUSER: psqladmin
         PGPASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
-        PGPORT: 5432
         PGSSLMODE: require
       run: |
         set -euo pipefail
 
-        export PGPASSWORD=$(az account get-access-token \
-          --resource https://ossrdbms-aad.database.windows.net \
-          --query accessToken -o tsv)
-
-        if [ -d "postgres/sql" ]; then
-          find postgres/sql -type f -name "*.sql" | sort | while read -r file; do
-            echo "=== Deploying $file ==="
-            psql \
-              --set ON_ERROR_STOP=on \
-              --single-transaction \
-              --file="$file"
-          done
-        else
-          echo "No postgres/sql folder found — skipping deployment"
-        fi
+        find postgres/sql -type f -name "*.sql" | sort | while read -r file; do
+          echo "=== Deploying $file ==="
+          psql \
+            --set ON_ERROR_STOP=on \
+            --single-transaction \
+            --file="$file"
+        done
