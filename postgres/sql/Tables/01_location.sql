@@ -1,4 +1,4 @@
-CREATE TABLE location IF NOT EXISTS (
+CREATE TABLE IF NOT EXISTS location (
     location_id      BIGSERIAL PRIMARY KEY,
     city_name        TEXT,
     country_code     TEXT,
