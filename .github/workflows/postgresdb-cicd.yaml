@@ -37,6 +37,7 @@ jobs:
         PGDATABASE: ${{ secrets.PG_DATABASE }}
         PGUSER: ${{ secrets.PG_ADMIN_AAD_USER }}
         PGPORT: ${{ secrets.PG_PORT }}
+        PGSSLMODE: require
       run: |
         set -euo pipefail
 
@@ -81,6 +82,7 @@ jobs:
         PGDATABASE: ${{ secrets.PG_DATABASE }}
         PGUSER: ${{ secrets.PG_ADMIN_AAD_USER }}
         PGPORT: ${{ secrets.PG_PORT }}
+        PGSSLMODE: require
       run: |
         set -euo pipefail
 
