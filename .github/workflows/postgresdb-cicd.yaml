@@ -1,0 +1,95 @@
+name: PostgreSQL SQL CI/CD
+
+on:
+  pull_request:
+    paths:
+    - 'postgres/sql/**'
+  push:
+    branches:
+    - main
+    paths:
+    - 'postgres/sql/**'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate PostgreSQL SQL
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Install PostgreSQL client
+      run: sudo apt-get install -y postgresql-client
+
+    - name: Validate SQL scripts
+      env:
+        PGHOST: ${{ secrets.PG_SERVER_NAME }}.postgres.database.azure.com
+        PGDATABASE: ${{ secrets.PG_DATABASE }}
+        PGUSER: ${{ secrets.PG_ADMIN_AAD_USER }}
+        PGPORT: ${{ secrets.PG_PORT }}
+      run: |
+        export PGPASSWORD=$(az account get-access-token \
+          --resource https://ossrdbms-aad.database.windows.net \
+          --query accessToken -o tsv)
+
+        if [ -d "postgres/sql" ]; then
+          for file in $(ls postgres/sql/*.sql | sort); do
+            echo "=== Validating $file ==="
+            psql --set ON_ERROR_STOP=on \
+                 --single-transaction \
+                 --file="$file" \
+                 --dry-run
+          done
+        else
+          echo "No postgres/sql folder found — skipping validation"
+        fi
+
+  deploy:
+    name: Deploy SQL to PostgreSQL
+    runs-on: ubuntu-latest
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Install PostgreSQL client
+      run: sudo apt-get install -y postgresql-client
+
+    - name: Deploy SQL scripts
+      env:
+        PGHOST: ${{ secrets.PG_SERVER_NAME }}.postgres.database.azure.com
+        PGDATABASE: ${{ secrets.PG_DATABASE }}
+        PGUSER: ${{ secrets.PG_ADMIN_AAD_USER }}
+        PGPORT: ${{ secrets.PG_PORT }}
+      run: |
+        export PGPASSWORD=$(az account get-access-token \
+          --resource https://ossrdbms-aad.database.windows.net \
+          --query accessToken -o tsv)
+
+        if [ -d "postgres/sql" ]; then
+          for file in $(ls postgres/sql/*.sql | sort); do
+            echo "=== Deploying $file ==="
+            psql --set ON_ERROR_STOP=on \
+                 --single-transaction \
+                 --file="$file"
+          done
+        else
+          echo "No postgres/sql folder found — skipping deployment"
+        fi
