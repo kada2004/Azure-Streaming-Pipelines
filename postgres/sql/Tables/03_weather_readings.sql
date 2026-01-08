@@ -36,3 +36,4 @@ CREATE INDEX IF NOT EXISTS idx_weather_location
 
 CREATE INDEX IF NOT EXISTS idx_weather_condition
     ON public.weather_reading (condition_id);
+
