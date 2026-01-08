@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   validate:
-    name: Validate PostgreSQL SQL
+    name: Validate PostgreSQL SQL (Timescale-safe)
     runs-on: ubuntu-latest
 
     steps:
@@ -38,20 +38,35 @@ jobs:
       run: |
         set -euo pipefail
 
+        echo " Phase 1: Syntax validation of base tables (rollback)"
         for file in postgres/sql/Tables/*.sql; do
-          echo "=== Validating $file ==="
-
-          if grep -qi "create_hypertable" "$file"; then
-            echo "  TimescaleDB non-transactional DDL detected"
-            psql \
-              --set ON_ERROR_STOP=on \
-              --file="$file"
-          else
+          if ! grep -qi "create_hypertable" "$file"; then
+            echo "=== Validating (rollback) $file ==="
             psql \
               --set ON_ERROR_STOP=on \
               --single-transaction \
               --file="$file" \
               --command="ROLLBACK;"
+          fi
+        done
+
+        echo " Phase 2: Apply base tables so FKs exist"
+        for file in postgres/sql/Tables/*.sql; do
+          if ! grep -qi "create_hypertable" "$file"; then
+            echo "=== Applying $file ==="
+            psql \
+              --set ON_ERROR_STOP=on \
+              --file="$file"
+          fi
+        done
+
+        echo " Phase 3: Validate Timescale hypertables"
+        for file in postgres/sql/Tables/*.sql; do
+          if grep -qi "create_hypertable" "$file"; then
+            echo "=== Validating $file ==="
+            psql \
+              --set ON_ERROR_STOP=on \
+              --file="$file"
           fi
         done
 
