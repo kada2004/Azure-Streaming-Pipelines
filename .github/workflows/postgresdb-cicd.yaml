@@ -27,7 +27,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y postgresql-client
 
-    - name: Validate SQL scripts (transaction + rollback)
+    - name: Validate SQL scripts
       env:
         PGHOST: azpostgresflexible.postgres.database.azure.com
         PGPORT: 5432
@@ -38,13 +38,21 @@ jobs:
       run: |
         set -euo pipefail
 
-        find postgres/sql -type f -name "*.sql" | sort | while read -r file; do
+        for file in postgres/sql/Tables/*.sql; do
           echo "=== Validating $file ==="
-          psql \
-            --set ON_ERROR_STOP=on \
-            --single-transaction \
-            --file="$file" \
-            --command="ROLLBACK;"
+
+          if grep -qi "create_hypertable" "$file"; then
+            echo "  TimescaleDB non-transactional DDL detected"
+            psql \
+              --set ON_ERROR_STOP=on \
+              --file="$file"
+          else
+            psql \
+              --set ON_ERROR_STOP=on \
+              --single-transaction \
+              --file="$file" \
+              --command="ROLLBACK;"
+          fi
         done
 
   deploy:
@@ -73,10 +81,9 @@ jobs:
       run: |
         set -euo pipefail
 
-        find postgres/sql -type f -name "*.sql" | sort | while read -r file; do
+        for file in postgres/sql/Tables/*.sql; do
           echo "=== Deploying $file ==="
           psql \
             --set ON_ERROR_STOP=on \
-            --single-transaction \
             --file="$file"
         done
