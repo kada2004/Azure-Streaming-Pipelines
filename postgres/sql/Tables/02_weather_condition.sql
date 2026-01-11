@@ -1,4 +1,4 @@
-CREATE TABLE public.weather_condition (
+CREATE TABLE IF NOT EXISTS public.weather_condition (
     weather_condition_id BIGSERIAL PRIMARY KEY,
 
     external_condition_id INT NOT NULL,   -- weather.id from payload
