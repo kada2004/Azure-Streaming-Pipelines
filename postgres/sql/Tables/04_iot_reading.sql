@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS public.iot_reading (
     iot_reading_id BIGSERIAL,
     event_time     TIMESTAMPTZ NOT NULL,
 
-    location_id    BIGINT NOT NULL,
+    location_id    BIGINT NULL,  -- nullable by design
 
     temperature    DECIMAL(5,2),
     humidity       DECIMAL(5,2),
@@ -23,6 +23,3 @@ SELECT create_hypertable(
     'event_time',
     if_not_exists => TRUE
 );
-
-CREATE INDEX IF NOT EXISTS idx_iot_location
-    ON public.iot_reading (location_id);
