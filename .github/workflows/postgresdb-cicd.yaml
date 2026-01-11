@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   validate:
-    name: Validate PostgreSQL SQL (Timescale-safe)
+    name: Validate PostgreSQL SQL
     runs-on: ubuntu-latest
 
     steps:
@@ -27,7 +27,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y postgresql-client
 
-    - name: Validate SQL scripts
+    - name: Validate SQL scripts (single transaction rollback)
       env:
         PGHOST: azpostgresflexible.postgres.database.azure.com
         PGPORT: 5432
@@ -38,37 +38,16 @@ jobs:
       run: |
         set -euo pipefail
 
-        echo " Phase 1: Syntax validation of base tables (rollback)"
-        for file in postgres/sql/Tables/*.sql; do
-          if ! grep -qi "create_hypertable" "$file"; then
-            echo "=== Validating (rollback) $file ==="
-            psql \
-              --set ON_ERROR_STOP=on \
-              --single-transaction \
-              --file="$file" \
-              --command="ROLLBACK;"
-          fi
-        done
+        echo "=== Validating all SQL files in ONE transaction ==="
 
-        echo " Phase 2: Apply base tables so FKs exist"
-        for file in postgres/sql/Tables/*.sql; do
-          if ! grep -qi "create_hypertable" "$file"; then
-            echo "=== Applying $file ==="
-            psql \
-              --set ON_ERROR_STOP=on \
-              --file="$file"
-          fi
-        done
+        # Concatenate all SQL files EXCEPT TimescaleDB extension bootstrap
+        cat $(find postgres/sql/Tables -name "*.sql" \
+          ! -name "00_enable_timescaledb.sql" | sort) | \
+        psql \
+          --set ON_ERROR_STOP=on \
+          --single-transaction
 
-        echo " Phase 3: Validate Timescale hypertables"
-        for file in postgres/sql/Tables/*.sql; do
-          if grep -qi "create_hypertable" "$file"; then
-            echo "=== Validating $file ==="
-            psql \
-              --set ON_ERROR_STOP=on \
-              --file="$file"
-          fi
-        done
+        echo "=== Validation completed (rolled back automatically) ==="
 
   deploy:
     name: Deploy SQL to PostgreSQL
@@ -96,7 +75,9 @@ jobs:
       run: |
         set -euo pipefail
 
-        for file in postgres/sql/Tables/*.sql; do
+        echo "=== Deploying SQL files ==="
+
+        for file in $(find postgres/sql/Tables -name "*.sql" | sort); do
           echo "=== Deploying $file ==="
           psql \
             --set ON_ERROR_STOP=on \
