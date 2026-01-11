@@ -6,3 +6,4 @@ CREATE TABLE IF NOT EXISTS public.location (
     longitude       DECIMAL(9,6),
     timezone_offset INT
 );
+
