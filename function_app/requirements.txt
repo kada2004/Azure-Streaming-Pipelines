@@ -7,5 +7,3 @@ requests
 azure-identity
 azure-keyvault-secrets
 #cryptography==41.0.7
-sqlalchemy
-psycopg2-binary
