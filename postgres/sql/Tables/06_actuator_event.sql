@@ -3,8 +3,8 @@ CREATE TABLE IF NOT EXISTS public.actuator_event (
     event_time        TIMESTAMPTZ NOT NULL,
 
     actuator_id       BIGINT NOT NULL,
-    state             BOOLEAN,      -- TRUE = ON, FALSE = OFF
-    source            TEXT,         -- manual / automatic
+    state             BOOLEAN,
+    source            TEXT,
 
     CONSTRAINT fk_actuator
         FOREIGN KEY (actuator_id)
@@ -18,7 +18,3 @@ SELECT create_hypertable(
     'event_time',
     if_not_exists => TRUE
 );
-
-CREATE INDEX IF NOT EXISTS idx_actuator_event_actuator
-    ON public.actuator_event (actuator_id);
-
