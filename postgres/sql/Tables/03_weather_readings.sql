@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS public.weather_reading (
     event_time         TIMESTAMPTZ NOT NULL,
 
     location_id        BIGINT NOT NULL,
-    condition_id       INT NOT NULL,
+    weather_condition_id BIGINT NOT NULL,
 
     temperature        DECIMAL(5,2),
     feels_like         DECIMAL(5,2),
@@ -19,11 +19,12 @@ CREATE TABLE IF NOT EXISTS public.weather_reading (
         REFERENCES public.location(location_id),
 
     CONSTRAINT fk_weather_condition
-        FOREIGN KEY (condition_id)
-        REFERENCES public.weather_condition(condition_id),
+        FOREIGN KEY (weather_condition_id)
+        REFERENCES public.weather_condition(weather_condition_id),
 
     PRIMARY KEY (weather_reading_id, event_time)
 );
+
 
 SELECT create_hypertable(
     'public.weather_reading',
@@ -32,8 +33,9 @@ SELECT create_hypertable(
 );
 
 CREATE INDEX IF NOT EXISTS idx_weather_location
-    ON public.weather_reading (location_id);
+ON public.weather_reading (location_id);
 
 CREATE INDEX IF NOT EXISTS idx_weather_condition
-    ON public.weather_reading (condition_id);
+ON public.weather_reading (weather_condition_id);
+
 

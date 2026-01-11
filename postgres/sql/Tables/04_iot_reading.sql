@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS public.iot_reading (
     iot_reading_id BIGSERIAL,
     event_time     TIMESTAMPTZ NOT NULL,
 
-    location_id    BIGINT NOT NULL,
+    location_id    BIGINT NULL,  -- nullable by design
 
     temperature    DECIMAL(5,2),
     humidity       DECIMAL(5,2),
@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS public.iot_reading (
 
     PRIMARY KEY (iot_reading_id, event_time)
 );
+
 
 SELECT create_hypertable(
     'public.iot_reading',
