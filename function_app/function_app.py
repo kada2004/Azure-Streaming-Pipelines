@@ -1,9 +1,9 @@
 import logging
 import json
 import hashlib
+import os
 from datetime import datetime, timezone
 from functools import lru_cache
-import os
 
 import azure.functions as func
 import requests
@@ -12,6 +12,8 @@ from azure.keyvault.secrets import SecretClient
 
 app = func.FunctionApp()
 
+
+#  TIMER FUNCTION 
 
 @app.function_name(name="fetchweatherapi")
 @app.timer_trigger(
@@ -25,22 +27,18 @@ app = func.FunctionApp()
     connection="EVENT_HUB_CONNECTION"
 )
 def fetchweatherapi(myTimer: func.TimerRequest, eventhub: func.Out[str]) -> None:
-    if myTimer.past_due:
-        logging.info("The timer is past due!")
-
-    KEYVAULT_URL = "https://kv-Az-TimeSeries.vault.azure.net/"
-    BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
-    city = "windhoek"
-
     try:
         credential = DefaultAzureCredential()
-        secret_client = SecretClient(vault_url=KEYVAULT_URL, credential=credential)
+        kv = SecretClient(
+            vault_url="https://kv-Az-TimeSeries.vault.azure.net/",
+            credential=credential
+        )
 
-        api_key = secret_client.get_secret("weather-api-key").value
+        api_key = kv.get_secret("weather-api-key").value
 
         response = requests.get(
-            BASE_URL,
-            params={"appid": api_key, "q": city},
+            "https://api.openweathermap.org/data/2.5/weather",
+            params={"appid": api_key, "q": "windhoek"},
             timeout=20
         )
         response.raise_for_status()
@@ -50,13 +48,13 @@ def fetchweatherapi(myTimer: func.TimerRequest, eventhub: func.Out[str]) -> None
             data["dt"], tz=timezone.utc
         ).replace(microsecond=0)
 
-        raw_id = f"weather|{city}|{event_time.isoformat()}"
-        event_id = hashlib.sha256(raw_id.encode()).hexdigest()
+        event_id = hashlib.sha256(
+            f"weather|windhoek|{event_time.isoformat()}".encode()
+        ).hexdigest()
 
         eventhub.set(json.dumps({
             "event_id": event_id,
             "event_type": "weather",
-            "schema_version": 1,
             "event_time": event_time.isoformat(),
             "ingested_at": datetime.now(timezone.utc).isoformat(),
             "payload": data
@@ -65,74 +63,36 @@ def fetchweatherapi(myTimer: func.TimerRequest, eventhub: func.Out[str]) -> None
         logging.info("Weather event sent to Event Hub")
 
     except Exception:
-        logging.exception("Failed to fetch or publish weather data")
+        logging.exception("fetchweatherapi failed")
 
 
-# DATABASE HELPERS (LAZY + SAFE)
+
+#  ASYNCPG CONNECTION (LAZY + SAFE)
 
 
 @lru_cache(maxsize=1)
-def get_engine():
-    """
-    Engine is created lazily.
-    This function is NEVER executed during indexing.
-    """
-    from sqlalchemy import create_engine  # lazy import
-
+def get_db_config():
     credential = DefaultAzureCredential()
     kv = SecretClient(
         vault_url=os.environ["KEYVAULT_URL"],
         credential=credential
     )
 
-    password = kv.get_secret(
-        os.environ["POSTGRES_PASSWORD_SECRET"]
-    ).value
-
-    conn_str = (
-        f"postgresql+psycopg2://{os.environ['POSTGRES_USER']}:{password}"
-        f"@{os.environ['POSTGRES_HOST']}:5432/{os.environ['POSTGRES_DB']}"
-        f"?sslmode={os.environ['POSTGRES_SSLMODE']}"
-    )
-
-    return create_engine(conn_str, pool_pre_ping=True)
-
-
-def get_tables():
-    """
-    Tables are defined lazily.
-    SQLAlchemy is imported ONLY when needed.
-    """
-    from sqlalchemy import (
-        MetaData, Table, Column,
-        Integer, BigInteger, Text, DECIMAL, TIMESTAMP
-    )
-
-    metadata = MetaData(schema="public")
-
-    location = Table(
-        "location", metadata,
-        Column("location_id", BigInteger, primary_key=True),
-        Column("city_name", Text),
-        Column("country_code", Text),
-        Column("latitude", DECIMAL(9, 6)),
-        Column("longitude", DECIMAL(9, 6)),
-        Column("timezone_offset", Integer),
-    )
-
-    weather_reading = Table(
-        "weather_reading", metadata,
-        Column("weather_reading_id", BigInteger, primary_key=True),
-        Column("event_time", TIMESTAMP(timezone=True)),
-        Column("location_id", BigInteger),
-        Column("temperature", DECIMAL(5, 2)),
-        Column("humidity", Integer),
-    )
-
-    return location, weather_reading
+    return {
+        "user": os.environ["POSTGRES_USER"],
+        "password": kv.get_secret(
+            os.environ["POSTGRES_PASSWORD_SECRET"]
+        ).value,
+        "database": os.environ["POSTGRES_DB"],
+        "host": os.environ["POSTGRES_HOST"],
+        "port": 5432,
+        "ssl": "require",
+    }
 
 
-# function to DB
+
+#  EVENT HUB → POSTGRES (ASYNC, SAFE)
+
 
 @app.function_name(name="eventhub_to_postgres")
 @app.event_hub_trigger(
@@ -140,7 +100,7 @@ def get_tables():
     event_hub_name="streaming_iot_time_series",
     connection="EVENT_HUB_CONNECTION"
 )
-def eventhub_to_postgres(event: func.EventHubEvent):
+async def eventhub_to_postgres(event: func.EventHubEvent):
 
     try:
         payload = json.loads(event.get_body().decode())
@@ -151,44 +111,52 @@ def eventhub_to_postgres(event: func.EventHubEvent):
     if payload.get("event_type") != "weather":
         return
 
+    import asyncpg  # imported inside function
+
+    data = payload["payload"]
+    cfg = get_db_config()
+
+    conn = None
     try:
-        from sqlalchemy.dialects.postgresql import insert as pg_insert
+        conn = await asyncpg.connect(**cfg)
 
-        engine = get_engine()
-        location, weather_reading = get_tables()
+        # Location UPSERT
+        location_id = await conn.fetchval("""
+            INSERT INTO location (city_name, country_code, latitude, longitude, timezone_offset)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (city_name, country_code)
+            DO UPDATE SET
+                latitude = EXCLUDED.latitude,
+                longitude = EXCLUDED.longitude
+            RETURNING location_id
+        """,
+            data["name"],
+            data["sys"]["country"],
+            data["coord"]["lat"],
+            data["coord"]["lon"],
+            data["timezone"],
+        )
 
-        data = payload["payload"]
-
-        with engine.begin() as conn:
-            # Location UPSERT
-            loc_stmt = (
-                pg_insert(location)
-                .values(
-                    city_name=data["name"],
-                    country_code=data["sys"]["country"],
-                    latitude=data["coord"]["lat"],
-                    longitude=data["coord"]["lon"],
-                    timezone_offset=data["timezone"],
-                )
-                .on_conflict_do_nothing()
-                .returning(location.c.location_id)
+        # Weather reading INSERT
+        await conn.execute("""
+            INSERT INTO weather_reading (
+                event_time,
+                location_id,
+                temperature,
+                humidity
             )
-
-            location_id = conn.execute(loc_stmt).scalar()
-
-            # Weather insert
-            conn.execute(
-                pg_insert(weather_reading)
-                .values(
-                    event_time=datetime.fromtimestamp(
-                        data["dt"], tz=timezone.utc
-                    ),
-                    location_id=location_id,
-                    temperature=data["main"]["temp"],
-                    humidity=data["main"]["humidity"],
-                )
-                .on_conflict_do_nothing()
-            )
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT DO NOTHING
+        """,
+            datetime.fromtimestamp(data["dt"], tz=timezone.utc),
+            location_id,
+            data["main"]["temp"],
+            data["main"]["humidity"],
+        )
 
     except Exception:
-        logging.exception("Failed to persist Event Hub message to Postgres")
+        logging.exception("Failed to write Event Hub data to Postgres")
+
+    finally:
+        if conn:
+            await conn.close()
