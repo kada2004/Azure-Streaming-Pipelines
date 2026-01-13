@@ -38,7 +38,7 @@ app = func.FunctionApp()
 
 @app.function_name(name="fetchweatherapi")
 @app.timer_trigger(
-    schedule="0 * * * * *",   # every minute – consider 0 */5 * * * * for production
+    schedule="0 * * * * *",   # every minute
     arg_name="myTimer",
     run_on_startup=False
 )
