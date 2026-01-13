@@ -29,9 +29,9 @@ def get_db_config():
     }
 
 
-# ────────────────────────────────────────────────
+
 #   TIMER → Fetch Weather → Event Hub
-# ────────────────────────────────────────────────
+
 
 app = func.FunctionApp()
 
