@@ -113,10 +113,21 @@ def eventhub_to_postgres(event: eh.EventData):
         logging.exception("Invalid Event Hub message")
         return
 
-    if payload.get("event_type") != "weather":
-        return
+    event_type = payload.get("event_type")
 
-    data = payload["payload"]
+    if event_type == "weather":
+        handle_weather(payload)
+    elif event_type == "iot":
+        handle_iot(payload)
+    else:
+        logging.info("Unknown event type, skipping")
+
+
+
+# WEATHER HANDLER
+
+def handle_weather(event: dict):
+    data = event["payload"]
     cfg = get_db_config()
     conn = None
 
@@ -124,11 +135,9 @@ def eventhub_to_postgres(event: eh.EventData):
         conn = psycopg2.connect(**cfg)
         cur = conn.cursor()
 
-        # UPSERT location
+        # Location UPSERT
         cur.execute("""
-            INSERT INTO location (
-                city_name, country_code, latitude, longitude, timezone_offset
-            )
+            INSERT INTO location (city_name, country_code, latitude, longitude, timezone_offset)
             VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (city_name, country_code)
             DO UPDATE SET
@@ -145,9 +154,8 @@ def eventhub_to_postgres(event: eh.EventData):
         ))
         location_id = cur.fetchone()[0]
 
-        # UPSERT weather_condition
+        # Weather condition UPSERT
         w = data["weather"][0]
-
         cur.execute("""
             INSERT INTO weather_condition (
                 external_condition_id, main, description, icon
@@ -166,7 +174,7 @@ def eventhub_to_postgres(event: eh.EventData):
         ))
         weather_condition_id = cur.fetchone()[0]
 
-        # INSERT weather_reading 
+        # Weather reading (deduplicated by index)
         cur.execute("""
             INSERT INTO weather_reading (
                 event_time,
@@ -182,8 +190,7 @@ def eventhub_to_postgres(event: eh.EventData):
                 cloudiness
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (event_time, location_id, weather_condition_id)
-            DO NOTHING
+            ON CONFLICT DO NOTHING
         """, (
             datetime.fromtimestamp(data["dt"], tz=timezone.utc),
             location_id,
@@ -199,13 +206,116 @@ def eventhub_to_postgres(event: eh.EventData):
         ))
 
         conn.commit()
-        logging.info(
-            "Weather stored: location_id=%s, condition_id=%s",
-            location_id, weather_condition_id
-        )
+        logging.info("Weather data written to Postgres")
 
     except Exception:
-        logging.exception("Failed to write weather event to Postgres")
+        logging.exception("Weather ingestion failed")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+
+# IOT + ACTUATOR HANDLER
+def handle_iot(event: dict):
+    data = event["payload"]
+    cfg = get_db_config()
+    conn = None
+
+    ACTUATOR_MAP = {
+        "fan": {
+            "on": "fan_actuator_on",
+            "off": "fan_actuator_off",
+            "type": "fan"
+        },
+        "watering_pump": {
+            "on": "watering_pump_on",
+            "off": "watering_pump_off",
+            "type": "pump"
+        },
+        "water_pump": {
+            "on": "water_pump_on",
+            "off": "water_pump_off",
+            "type": "pump"
+        }
+    }
+
+    try:
+        conn = psycopg2.connect(**cfg)
+        cur = conn.cursor()
+
+        event_time = datetime.fromisoformat(
+            data["measurement_time"]
+        ).replace(tzinfo=timezone.utc)
+
+        location_id = None  # nullable by design
+
+        # IoT sensor data
+        cur.execute("""
+            INSERT INTO iot_reading (
+                event_time,
+                location_id,
+                temperature,
+                humidity,
+                water_level,
+                nitrogen,
+                phosphorus,
+                potassium
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (event_time, location_id) DO NOTHING
+        """, (
+            event_time,
+            location_id,
+            data.get("temperature"),
+            data.get("humidity"),
+            data.get("water_level"),
+            data.get("nitrogen"),
+            data.get("phosphorus"),
+            data.get("potassium")
+        ))
+
+        # Actuator events
+        for name, cfg_map in ACTUATOR_MAP.items():
+            on_flag = data.get(cfg_map["on"])
+            off_flag = data.get(cfg_map["off"])
+
+            if on_flag is None and off_flag is None:
+                continue
+
+            state = True if on_flag == 1 else False
+
+            cur.execute("""
+                INSERT INTO actuator (actuator_name, actuator_type)
+                VALUES (%s, %s)
+                ON CONFLICT (actuator_name)
+                DO UPDATE SET actuator_type = EXCLUDED.actuator_type
+                RETURNING actuator_id
+            """, (name, cfg_map["type"]))
+            actuator_id = cur.fetchone()[0]
+
+            cur.execute("""
+                INSERT INTO actuator_event (
+                    event_time,
+                    actuator_id,
+                    state,
+                    source
+                )
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT DO NOTHING
+            """, (
+                event_time,
+                actuator_id,
+                state,
+                "iot"
+            ))
+
+        conn.commit()
+        logging.info("IoT + actuator data written to Postgres")
+
+    except Exception:
+        logging.exception("IoT ingestion failed")
         if conn:
             conn.rollback()
     finally:
