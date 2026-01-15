@@ -90,7 +90,7 @@ def fetchweatherapi(myTimer: func.TimerRequest, eventhub: func.Out[str]) -> None
             "payload": data
         }))
 
-        logging.info("Weather event sent to Event Hub")
+        logging.info(f"Weather data for {city}: {data} and this have been send to even_hub as well")
 
     except Exception:
         logging.exception("fetchweatherapi failed")
@@ -126,7 +126,9 @@ def eventhub_to_postgres(event: eh.EventData):
 
         # UPSERT location
         cur.execute("""
-            INSERT INTO location (city_name, country_code, latitude, longitude, timezone_offset)
+            INSERT INTO location (
+                city_name, country_code, latitude, longitude, timezone_offset
+            )
             VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (city_name, country_code)
             DO UPDATE SET
@@ -141,33 +143,69 @@ def eventhub_to_postgres(event: eh.EventData):
             data["coord"]["lon"],
             data["timezone"]
         ))
-
         location_id = cur.fetchone()[0]
 
-        # INSERT weather reading (idempotent)
+        # UPSERT weather_condition
+        w = data["weather"][0]
+
+        cur.execute("""
+            INSERT INTO weather_condition (
+                external_condition_id, main, description, icon
+            )
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (external_condition_id, icon)
+            DO UPDATE SET
+                main = EXCLUDED.main,
+                description = EXCLUDED.description
+            RETURNING weather_condition_id
+        """, (
+            w["id"],
+            w["main"],
+            w["description"],
+            w["icon"]
+        ))
+        weather_condition_id = cur.fetchone()[0]
+
+        # INSERT weather_reading 
         cur.execute("""
             INSERT INTO weather_reading (
                 event_time,
                 location_id,
+                weather_condition_id,
                 temperature,
+                feels_like,
+                pressure,
                 humidity,
-                event_id
+                wind_speed,
+                wind_deg,
+                visibility,
+                cloudiness
             )
-            VALUES (%s, %s, %s, %s, %s)
-            ON CONFLICT (event_id) DO NOTHING
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (event_time, location_id, weather_condition_id)
+            DO NOTHING
         """, (
             datetime.fromtimestamp(data["dt"], tz=timezone.utc),
             location_id,
+            weather_condition_id,
             data["main"]["temp"],
+            data["main"]["feels_like"],
+            data["main"]["pressure"],
             data["main"]["humidity"],
-            payload["event_id"]
+            data["wind"]["speed"],
+            data["wind"]["deg"],
+            data.get("visibility"),
+            data["clouds"]["all"]
         ))
 
         conn.commit()
-        logging.info("Weather data written to Postgres")
+        logging.info(
+            "Weather stored: location_id=%s, condition_id=%s",
+            location_id, weather_condition_id
+        )
 
     except Exception:
-        logging.exception("Failed to write to Postgres")
+        logging.exception("Failed to write weather event to Postgres")
         if conn:
             conn.rollback()
     finally:
