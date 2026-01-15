@@ -58,21 +58,19 @@ def get_db_config():
 def fetchweatherapi(myTimer: func.TimerRequest, eventhub: func.Out[str]) -> None:
     if myTimer.past_due:
         logging.warning("Timer is past due")
+    
+    KEYVAULT_URL = "https://kv-Az-TimeSeries.vault.azure.net/"
 
+    BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
+    city = "windhoek"
+  
     try:
         credential = DefaultAzureCredential()
-        kv = SecretClient(
-            vault_url=os.environ["KEYVAULT_URL"],
-            credential=credential
-        )
+        secret_client = SecretClient(vault_url=KEYVAULT_URL, credential=credential)
+        api_key_secret = secret_client.get_secret("weather-api-key")
+        API_KEY = api_key_secret.value
 
-        api_key = kv.get_secret("weather-api-key").value
-
-        response = requests.get(
-            "https://api.openweathermap.org/data/2.5/weather",
-            params={"appid": api_key, "q": "windhoek", "units": "metric"},
-            timeout=15
-        )
+        response = requests.get(BASE_URL, params={"appid": API_KEY, "q": city})
         response.raise_for_status()
         data = response.json()
 
