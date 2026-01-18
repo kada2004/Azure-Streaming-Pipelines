@@ -251,7 +251,7 @@ def handle_iot(event: dict):
 
         location_id = None  # nullable by design
 
-        # IoT sensor data
+        # Insert IoT sensor reading 
         cur.execute("""
             INSERT INTO iot_reading (
                 event_time,
@@ -276,7 +276,7 @@ def handle_iot(event: dict):
             data.get("potassium")
         ))
 
-        # Actuator events
+        # Insert actuator events
         for name, cfg_map in ACTUATOR_MAP.items():
             on_flag = data.get(cfg_map["on"])
             off_flag = data.get(cfg_map["off"])
@@ -284,8 +284,15 @@ def handle_iot(event: dict):
             if on_flag is None and off_flag is None:
                 continue
 
-            state = True if on_flag == 1 else False
+            # actuator state detection
+            if on_flag == 1:
+                state = True
+            elif off_flag == 1:
+                state = False
+            else:
+                continue  # ignore  (both flags 0)
 
+            # Ensure actuator exists in actuator table
             cur.execute("""
                 INSERT INTO actuator (actuator_name, actuator_type)
                 VALUES (%s, %s)
@@ -295,6 +302,7 @@ def handle_iot(event: dict):
             """, (name, cfg_map["type"]))
             actuator_id = cur.fetchone()[0]
 
+            # Insert actuator event 
             cur.execute("""
                 INSERT INTO actuator_event (
                     event_time,
