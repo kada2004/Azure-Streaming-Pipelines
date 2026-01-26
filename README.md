@@ -187,6 +187,10 @@ Deployment to Synapse Warehouse:
 <img width="1248" height="574" alt="image" src="https://github.com/user-attachments/assets/ef1983ec-b047-48a7-84e0-1bdd958b9f2a" />
 <img width="880" height="806" alt="image" src="https://github.com/user-attachments/assets/2ee1493a-b155-46d4-aaf9-43063f5f7ead" />
 
+Azure resource group 
+
+<img width="2265" height="1068" alt="image" src="https://github.com/user-attachments/assets/8e40a366-b14d-476d-beca-93a7a67c95cf" />
+
 
 #### to be continue here
 ## CSV to JSON Transformation (Client API Preparation)
