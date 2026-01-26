@@ -119,6 +119,8 @@ Live weather data is collected using the **OpenWeather API** and includes key at
 - Timestamp and city information
 
 Example Weather API response (sample):
+
+``
 {
   "coord_lon": 17.0832,
   "coord_lat": -22.5594,
@@ -139,6 +141,11 @@ Example Weather API response (sample):
   "name": "Windhoek",
   "cod": 200
 }
+``
+
+
+<img width="230" height="835" alt="image" src="https://github.com/user-attachments/assets/149dacf8-39ca-4749-8329-69338f8482d7" />
+
 
 ##  Azure Infrastructure
 
@@ -153,10 +160,35 @@ Deploy Plan:
 <img width="715" height="874" alt="image" src="https://github.com/user-attachments/assets/dd4f563d-9bac-492c-85e3-a0cacb2e23f9" />
 <img width="815" height="1196" alt="image" src="https://github.com/user-attachments/assets/8811a2db-fb84-47b0-ad0e-fff4ddf96fba" />
 
+[Link to yaml code](https://github.com/kada2004/Azure-Streaming-Pipelines/blob/main/.github/workflows/ci_cd.yaml)
+##  CI/CD Deployment (GitHub Actions)
+
+This project uses **GitHub Actions** to automate CI/CD deployments to Azure, including:
+
+- **Azure Function App** (application deployment)
+- **PostgreSQL Database** (schema/configuration updates)
+- **Azure Synapse Warehouse** (warehouse deployment)
+  
+[Link to yaml code FunctionApp](https://github.com/kada2004/Azure-Streaming-Pipelines/blob/main/.github/workflows/function-app-cicd.yaml)
+
+[Link to yaml code PostgreSQL Database](https://github.com/kada2004/Azure-Streaming-Pipelines/blob/main/.github/workflows/postgresdb-cicd.yaml)
+
+[Link to yaml code Synapse Warehouse](https://github.com/kada2004/Azure-Streaming-Pipelines/blob/main/.github/workflows/synapse_sql_ci_cd.yaml)
+
+The pipeline ensures consistent, repeatable deployments and supports fast delivery.
+
+Deployment to FunctionAPP:
+<img width="1438" height="731" alt="image" src="https://github.com/user-attachments/assets/5f0a3f2e-1af2-422a-a04d-6354de954e5c" />
+<img width="1972" height="1050" alt="image" src="https://github.com/user-attachments/assets/03708884-589f-4d9a-8bad-0221aeb24800" />
+Deployment to PostgreSQL:
+<img width="1547" height="513" alt="image" src="https://github.com/user-attachments/assets/8a2128e0-0e7a-4662-90f4-e7427839bd2c" />
+<img width="887" height="646" alt="image" src="https://github.com/user-attachments/assets/759ed40f-1d09-40c9-99c5-99262de5c9db" />
+Deployment to Synapse Warehouse:
+<img width="1248" height="574" alt="image" src="https://github.com/user-attachments/assets/ef1983ec-b047-48a7-84e0-1bdd958b9f2a" />
+<img width="880" height="806" alt="image" src="https://github.com/user-attachments/assets/2ee1493a-b155-46d4-aaf9-43063f5f7ead" />
 
 
-
-
+#### to be continue here
 ## CSV to JSON Transformation (Client API Preparation)
 
 Before sending IoT sensor data to **Azure APIM**, the Kaggle CSV file is converted into **newline-delimited JSON  format.  
