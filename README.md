@@ -60,8 +60,109 @@ This project delivers an end-to-end data pipeline that supports both OLTP (live 
    Stores processed live sensor/weather data for real-time querying and operational reporting.
 
 7. **Streamlit Dashboard (Azure Web App)**  
-   A front-end dashboard that reads from PostgreSQL and displays real-time farm monitoring insi
+   A front-end dashboard that reads from PostgreSQL and displays real-time farm monitoring insights for users
+## Azure OLAP (Historical Analytics)
+
+1. **Azure Stream Analytics**  
+   Reads data from Event Hub, performs real-time transformations/aggregations, and prepares historical datasets.
+
+2. **Azure Blob Storage**  
+   Stores intermediate and/or archived outputs from Stream Analytics as a staging layer for analytics.
+
+3. **Azure Synapse Analytics (Warehouse)**  
+   Stores structured historical data for long-term analytics and reporting (OLAP workload).
+
+4. **Streamlit (Historical View)**  
+   Streamlit connects to Synapse to display historical trends such as soil humidity, soil temperature, water level, and NPK values over time.
+
+##  Infrastructure, Security & DevOps
+
+1. **Terraform (IaC)**  
+   Provisions Azure resources such as APIM, Event Hub, Function Apps, PostgreSQL, Blob Storage, and Synapse.
+
+2. **GitHub Actions (CI/CD)**  
+   Automates deployment of infrastructure and application code into Azure.
+
+3. **Microsoft Entra ID + Service Principal + KeyVault**  
+   Provides secure authentication and role-based access control for deployments and service-to-service communication.
+
+##  Project Setup and Prerequisites
+
+1. **Laptop/PC** with at least **16 GB RAM** (recommended)  
+2. **Azure Subscription** (required to deploy Azure services)  
+3. **IDE** such as **VS Code** or **PyCharm**
+
+##  The Dataset
+
+This project uses two main data sources:
+
+### 1) IoT Agriculture Dataset (Kaggle)
+The IoT sensor dataset is taken from Kaggle:  
+[IoT Agriculture 2024 Dataset](https://www.kaggle.com/datasets/wisam1985/iot-agriculture-2024)
 
 
+It contains simulated farming sensor readings such as:
+- **Water Level**
+- **Soil Humidity**
+- **NPK values** (Nitrogen, Phosphorus, Potassium)
+- **Plant/Soil related sensor measurements**
+
+---
+
+### 2) Weather Data Source (OpenWeather API)
+Live weather data is collected using the **OpenWeather API** and includes key attributes like:
+- Location coordinates (latitude/longitude)
+- Weather condition (clear, cloudy, rain, etc.)
+- Temperature (min/max/current)
+- Pressure and humidity
+- Wind speed and direction
+- Timestamp and city information
+
+Example Weather API response (sample):
+{
+  "coord_lon": 17.0832,
+  "coord_lat": -22.5594,
+  "weather_id": 800,
+  "weather_main": "Clear",
+  "weather_description": "clear sky",
+  "main_temp": 294.42,
+  "main_feels_like": 293.57,
+  "main_temp_min": 294.42,
+  "main_temp_max": 295.61,
+  "main_pressure": 1016,
+  "main_humidity": 37,
+  "wind_speed": 3.09,
+  "wind_deg": 160,
+  "clouds_all": 0,
+  "dt": 1762409877,
+  "sys_country": "NA",
+  "name": "Windhoek",
+  "cod": 200
+}
+
+##  Azure Infrastructure
+
+All Azure infrastructure for this project was provisioned using **Terraform (Infrastructure as Code)**.  
+A **GitHub Actions CI/CD pipeline** is used to validate and deploy the Terraform configuration into Azure.  
+Secure authentication between **GitHub** and **Azure** is handled using a **Microsoft Entra ID Service Principal**, enabling automated deployments and resource access.
+validate on PR:
+
+<img width="1883" height="553" alt="image" src="https://github.com/user-attachments/assets/9623b39d-ae04-434e-a9ce-4075ac2ccd7f" />
+
+Deploy Plan:
+<img width="715" height="874" alt="image" src="https://github.com/user-attachments/assets/dd4f563d-9bac-492c-85e3-a0cacb2e23f9" />
+<img width="815" height="1196" alt="image" src="https://github.com/user-attachments/assets/8811a2db-fb84-47b0-ad0e-fff4ddf96fba" />
+
+
+
+
+
+## CSV to JSON Transformation (Client API Preparation)
+
+Before sending IoT sensor data to **Azure APIM**, the Kaggle CSV file is converted into **newline-delimited JSON  format.  
+This makes it easy for the **Python Client API** to stream one JSON message at a time as real-time events.
+
+###  Python Script: Convert CSV → Json
+[Link](https://github.com/kada2004/Azure-Streaming-Pipelines/blob/main/Client_API/transform_to_json.py)
 
 
