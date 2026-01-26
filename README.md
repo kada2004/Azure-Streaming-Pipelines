@@ -30,4 +30,38 @@ Alerting Use Case (Threshold-Based Alerts)
 | Soil Temperature | > 35°C    |  Soil Too Hot Alert |
 | Soil Temperature | < 10°C    |  Soil Too Cold Alert |
 
+## The Project Overview
+
+This project delivers an end-to-end data pipeline that supports both OLTP (live transaction processing) and OLAP (historical analytics) workloads. It integrates multiple Azure services to enable real-time ingestion, stream processing, data storage, transformation, and interactive visualization for smart farming insights.
+
+# Project Architecture
+<img width="1858" height="1059" alt="image" src="https://github.com/user-attachments/assets/29ee4ca3-2446-4ef1-aaed-31cf8cad7d55" />
+
+## Stack used in the project
+
+## Streaming OLTP (Live Data)
+
+1. **IoT Data Source (Kaggle CSV)**  
+   Kaggle IoT dataset is used as the simulated sensor source (soil humidity, water level, NPK, temperature).
+
+2. **Python Client API**  
+   A Python script reads the dataset and publishes IoT messages in real-time streaming format.
+
+3. **Azure API Management (APIM)**  
+   Acts as the API gateway to securely receive incoming streaming messages from the client system.
+
+4. **Azure Event Hub**  
+   Serves as the real-time message broker to buffer and distribute streaming events across downstream services.
+
+5. **Azure Function App (Stream Consumer)**  
+   Consumes messages from Event Hub and processes them for transactional (OLTP) storage.
+
+6. **PostgreSQL Database**  
+   Stores processed live sensor/weather data for real-time querying and operational reporting.
+
+7. **Streamlit Dashboard (Azure Web App)**  
+   A front-end dashboard that reads from PostgreSQL and displays real-time farm monitoring insi
+
+
+
 
