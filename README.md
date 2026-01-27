@@ -187,16 +187,22 @@ Deployment to Synapse Warehouse:
 <img width="1248" height="574" alt="image" src="https://github.com/user-attachments/assets/ef1983ec-b047-48a7-84e0-1bdd958b9f2a" />
 <img width="880" height="806" alt="image" src="https://github.com/user-attachments/assets/2ee1493a-b155-46d4-aaf9-43063f5f7ead" />
 
+Deployment Workflow
+
+<img width="731" height="398" alt="image" src="https://github.com/user-attachments/assets/985aac6f-4a05-48ea-9899-2b84c4e83c60" />
+
 Azure resource group 
 
 <img width="2265" height="1068" alt="image" src="https://github.com/user-attachments/assets/8e40a366-b14d-476d-beca-93a7a67c95cf" />
 
 
-#### to be continue here
+
 ## CSV to JSON Transformation (Client API Preparation)
 
 Before sending IoT sensor data to **Azure APIM**, the Kaggle CSV file is converted into **newline-delimited JSON  format.  
-This makes it easy for the **Python Client API** to stream one JSON message at a time as real-time events.
+This makes it easy for the **Python Client API** to stream one JSON message at a time as real-time events [link to code](https://github.com/kada2004/Azure-Streaming-Pipelines/blob/main/Client_API/transform_to_json.py).
+
+## Ingesting the data
 
 ###  Python Script: Convert CSV → Json
 [Link](https://github.com/kada2004/Azure-Streaming-Pipelines/blob/main/Client_API/transform_to_json.py)
