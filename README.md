@@ -175,6 +175,8 @@ This project uses **GitHub Actions** to automate CI/CD deployments to Azure, inc
 
 [Link to yaml code Synapse Warehouse](https://github.com/kada2004/Azure-Streaming-Pipelines/blob/main/.github/workflows/synapse_sql_ci_cd.yaml)
 
+[IaC code](https://github.com/kada2004/Azure-Streaming-Pipelines/tree/main/Terraform)
+
 The pipeline ensures consistent, repeatable deployments and supports fast delivery.
 
 Deployment to FunctionAPP:
@@ -196,15 +198,93 @@ Azure resource group
 <img width="2265" height="1068" alt="image" src="https://github.com/user-attachments/assets/8e40a366-b14d-476d-beca-93a7a67c95cf" />
 
 
-
+# Data Ingestion
 ## CSV to JSON Transformation (Client API Preparation)
 
-Before sending IoT sensor data to **Azure APIM**, the Kaggle CSV file is converted into **newline-delimited JSON  format.  
+Before sending IoT sensor data to **Azure APIM**, the Kaggle CSV file is converted into newline-delimited JSON  format.  
 This makes it easy for the **Python Client API** to stream one JSON message at a time as real-time events [link to code](https://github.com/kada2004/Azure-Streaming-Pipelines/blob/main/Client_API/transform_to_json.py).
 
-## Ingesting the data
 
-###  Python Script: Convert CSV → Json
-[Link](https://github.com/kada2004/Azure-Streaming-Pipelines/blob/main/Client_API/transform_to_json.py)
+The system ingests data from **two independent sources**, both streaming into **Azure Event Hub** as a central buffering layer.
+
+### 1. IoT Client API (Kaggle Dataset)
+- A **Python Client API** reads locally stored IoT data in **JSON  format**.
+- The data is sent to **Azure API Management (APIM)**, which acts as a secure ingestion gateway.
+- APIM validates and forwards the incoming events to **Azure Event Hub** for downstream processing.
+
+### 2. Weather Data Ingestion (OpenWeather API)
+- An **Azure Function App** periodically fetches live weather data from the **OpenWeather API**.
+- The function processes and normalizes the weather response.
+- Processed weather events are published directly to **Azure Event Hub**, ensuring near real-time ingestion.
+
+**Azure Event Hub** serves as the central event buffer, decoupling data producers from downstream consumers and enabling scalable real-time processing.
+
+<img width="852" height="739" alt="image" src="https://github.com/user-attachments/assets/17d9118d-592d-4886-8579-15830fce474d" />
+
+Document in EventHub Data Explorer
+
+<img width="2543" height="1257" alt="image" src="https://github.com/user-attachments/assets/d0802e6f-38ec-45dd-9ad4-a11c963629e3" />
+
+## Data Processing
+
+Once data is ingested into **Azure Event Hub**, it is processed in parallel to support both **OLTP** and **OLAP** workloads.
+
+### 1. OLTP Processing (Real-Time)
+- An **Azure Function App** consumes streaming events from Event Hub.
+- The function processes and enriches incoming messages.
+- Data is written as **time-series records** into **PostgreSQL**, enabling fast transactional queries and real-time dashboards.
+  
+ [function code](https://github.com/kada2004/Azure-Streaming-Pipelines/blob/main/function_app/function_app.py)
+
+screenshot of logs from function app logs and code inside to past here do not forget
+
+### 2. OLAP Processing (Historical Analytics)
+- **Azure Stream Analytics** reads the same event stream from Event Hub.
+- Processed (and raw) data is written to **Azure Blob Storage** as a dump/staging layer for historical analysis.
+
+Stream Analytics Job
+
+<img width="2547" height="1126" alt="image" src="https://github.com/user-attachments/assets/e7422ec7-5855-41d5-959d-316edb1840ff" />
+
+Processing Flow 
+
+<img width="465" height="786" alt="image" src="https://github.com/user-attachments/assets/41952b25-f941-4dd7-9c9a-8313223cce11" />
+
+## Data Storage
+
+### 1. PostgreSQL (OLTP – Live Data)
+- **PostgreSQL** is used as the primary transactional datastore for live sensor and weather data.
+- **TimescaleDB extension** is enabled to efficiently handle high-volume **time-series data**.
+- Optimized for fast inserts, real-time queries, and dashboard consumption.
+
+### 2. Azure Blob Storage (OLAP – Historical Data)
+- **Azure Blob Storage** is used to store historical and processed data.
+- Acts as a **raw  layer** for long-term analytics.
+- Serves as a cost-effective storage solution for historical and analytical workloads.
+
+Diagram flow 
+
+<img width="403" height="742" alt="image" src="https://github.com/user-attachments/assets/b34e9815-4496-42b1-9024-aaf90e2560f9" />
+
+Timescale Extension
+
+<img width="2130" height="176" alt="image" src="https://github.com/user-attachments/assets/8b24f549-0bc5-4065-a103-beb7b3278460" />
+
+[enable timescale](https://github.com/kada2004/Azure-Streaming-Pipelines/blob/main/postgres/sql/Tables/00_enable_timescaledb.sql)
+
+Sample query in VsCode:
+
+<img width="989" height="1214" alt="image" src="https://github.com/user-attachments/assets/3f0b3ef4-c946-4033-be88-3b294117339c" />
+
+
+
+
+
+
+
+
+
+
+
 
 
