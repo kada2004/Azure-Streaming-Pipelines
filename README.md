@@ -1,5 +1,4 @@
-# Azure-Streaming-Pipelines
-Azure Streaming Pipelines for data series data
+
 # Project Introduction & Goals
 ## Introduction
 This project streams near real-time data from the OpenWeather API and an IoT Kaggle dataset into Azure Event Hub for processing. Azure Functions store live data in PostgreSQL for real-time monitoring, while Azure Stream Analytics loads historical data into Azure Synapse for reporting. A Streamlit dashboard deployed on Azure Web App displays both live and historical insights for farmers.
@@ -35,7 +34,7 @@ Alerting Use Case (Threshold-Based Alerts)
 This project delivers an end-to-end data pipeline that supports both OLTP (live transaction processing) and OLAP (historical analytics) workloads. It integrates multiple Azure services to enable real-time ingestion, stream processing, data storage, transformation, and interactive visualization for smart farming insights.
 
 # Project Architecture
-<img width="1858" height="1059" alt="image" src="https://github.com/user-attachments/assets/29ee4ca3-2446-4ef1-aaed-31cf8cad7d55" />
+<img width="1779" height="1055" alt="image" src="https://github.com/user-attachments/assets/ea315574-2569-479d-99f6-016bdf7fa10c" />
 
 ## Stack used in the project
 
@@ -236,7 +235,13 @@ Once data is ingested into **Azure Event Hub**, it is processed in parallel to s
   
  [function code](https://github.com/kada2004/Azure-Streaming-Pipelines/blob/main/function_app/function_app.py)
 
-screenshot of logs from function app logs and code inside to past here do not forget
+Function Logs enable by Application Inseight:
+
+<img width="1887" height="1183" alt="image" src="https://github.com/user-attachments/assets/2bd71f7f-d6af-4d4e-9771-aacd98d17cfb" />
+
+Code inside Function :
+
+<img width="767" height="1161" alt="image" src="https://github.com/user-attachments/assets/3a0de6b6-3ac0-4fac-abf8-413b15ddf603" />
 
 ### 2. OLAP Processing (Historical Analytics)
 - **Azure Stream Analytics** reads the same event stream from Event Hub.
@@ -275,6 +280,45 @@ Timescale Extension
 Sample query in VsCode:
 
 <img width="989" height="1214" alt="image" src="https://github.com/user-attachments/assets/3f0b3ef4-c946-4033-be88-3b294117339c" />
+
+## Azure Synapse Warehouse
+
+Azure Synapse is used for **historical analytics** by querying data stored in **Azure Blob Storage**.
+
+- An **external data source** is created in Synapse that points directly to Blob Storage.
+- Authentication is handled using **Managed Identity**, removing the need for secrets or credentials.
+- Raw JSON data stored in Blob Storage is exposed through **external tables**.
+- **SQL Views** are created on top of external tables to parse JSON fields .
+
+Dedicated SQL POOL & [SQL CODE](https://github.com/kada2004/Azure-Streaming-Pipelines/tree/main/synapse/sql):
+
+<img width="2234" height="1194" alt="image" src="https://github.com/user-attachments/assets/7e046500-ad84-4503-9544-1ada92be3916" />
+
+
+## Sendgrid and alerting part do not forget 
+
+
+## Dashboard Web App (Streamlit)
+
+The front-end dashboard is built using **Streamlit** and deployed on **Azure Web App**.
+
+- Streamlit queries **PostgreSQL** for real-time (OLTP) data.
+- It also connects to **Azure Synapse Warehouse** to visualize historical and analytical insights.
+- The application code is deployed directly to Azure Web App.
+- All required infrastructure and configurations are provisioned using **Infrastructure as Code (Terraform)**.
+
+The dashboard provides farmers and users with both **live monitoring** and **historical trend analysis** through a single interface.
+
+
+### Interface when water level < 20 %
+
+<img width="2552" height="1294" alt="image (23)" src="https://github.com/user-attachments/assets/6b35a84e-1090-4ba7-b34d-100a134ef0cc" />
+
+
+
+
+
+
 
 
 
