@@ -111,7 +111,7 @@ def run_alerts_from_postgres(cur):
 
     # Air temperature
     if air_temp_c is not None:
-        if air_temp_c > 20:
+        if air_temp_c > 40:
             alerts.append(f"Heat alert – air temperature {air_temp_c:.1f} °C")
         if air_temp_c < 5:
             alerts.append(f"Frost / cold alert – air temperature {air_temp_c:.1f} °C")
