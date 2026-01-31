@@ -9,3 +9,4 @@ azure-identity
 azure-keyvault-secrets
 #cryptography==41.0.7
 psycopg2-binary>=2.9.9
+sendgrid

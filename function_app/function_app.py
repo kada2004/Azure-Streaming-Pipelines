@@ -12,14 +12,15 @@ import azurefunctions.extensions.bindings.eventhub as eh
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
 
 # Azure Functions App V2
 
 app = func.FunctionApp()
 
-
-
-# Key Vault + Postgres config 
+# Key Vault + Postgres config
 
 @lru_cache(maxsize=1)
 def get_db_config():
@@ -40,9 +41,115 @@ def get_db_config():
         "sslmode": "require",
     }
 
+# SendGrid alert helper
+
+ALERT_FROM = "alerts@azure-streaming243-alerts.com"
 
 
-# TIMER → Fetch Weather → Event Hub
+def send_alert_email(subject, body):
+
+    api_key = os.environ.get("SENDGRID_API_KEY")
+    to_email = os.environ.get("ALERT_TO_EMAIL")
+
+    if not api_key:
+        logging.error("SENDGRID_API_KEY not configured")
+        return
+
+    if not to_email:
+        logging.error("ALERT_TO_EMAIL not configured")
+        return
+
+    message = Mail(
+        from_email=ALERT_FROM,
+        to_emails=to_email,
+        subject=subject,
+        plain_text_content=body
+    )
+
+    try:
+        sg = SendGridAPIClient(api_key)
+        sg.send(message)
+    except Exception:
+        logging.exception("SendGrid send failed")
+
+# Alerts (Postgres query + rules)
+
+
+def run_alerts_from_postgres(cur):
+
+    # latest air temperature (weather)
+    cur.execute("""
+        SELECT
+            wr.temperature
+        FROM weather_reading wr
+        ORDER BY wr.event_time DESC
+        LIMIT 1
+    """)
+    weather = cur.fetchone()
+
+    air_temp_k = weather[0] if weather else None
+    air_temp_c = air_temp_k - 273.15 if air_temp_k is not None else None
+
+    # latest iot
+    cur.execute("""
+        SELECT
+            temperature,
+            humidity,
+            water_level
+        FROM iot_reading
+        ORDER BY event_time DESC
+        LIMIT 1
+    """)
+    iot = cur.fetchone()
+
+    if not iot:
+        return
+
+    soil_temp, soil_humidity, water_level = iot
+
+    alerts = []
+
+    # Air temperature
+    if air_temp_c is not None:
+        if air_temp_c > 40:
+            alerts.append(f"Heat alert – air temperature {air_temp_c:.1f} °C")
+        if air_temp_c < 5:
+            alerts.append(f"Frost / cold alert – air temperature {air_temp_c:.1f} °C")
+
+    # Water level
+    if water_level is not None:
+        if water_level < 20:
+            alerts.append(f"Low water alert – water level {water_level:.1f} %")
+
+    # Soil humidity
+    if soil_humidity is not None:
+        if soil_humidity > 80:
+            alerts.append(f"Over-watering alert – soil humidity {soil_humidity:.1f} %")
+        if soil_humidity < 30:
+            alerts.append(f"Dry soil alert – soil humidity {soil_humidity:.1f} %")
+
+    # Soil temperature
+    if soil_temp is not None:
+        if soil_temp > 35:
+            alerts.append(f"Soil too hot alert – soil temperature {soil_temp:.1f} °C")
+        if soil_temp < 10:
+            alerts.append(f"Soil too cold alert – soil temperature {soil_temp:.1f} °C")
+
+    if not alerts:
+        return
+
+    body = (
+        "IoT / Weather alerts triggered at "
+        f"{datetime.now(timezone.utc).isoformat()}\n\n"
+        + "\n".join(alerts)
+    )
+
+    send_alert_email(
+        subject="IoT platform alert",
+        body=body
+    )
+
+# TIMER +  Fetch Weather +  Event Hub
 
 @app.function_name(name="fetchweatherapi")
 @app.timer_trigger(
@@ -58,12 +165,12 @@ def get_db_config():
 def fetchweatherapi(myTimer: func.TimerRequest, eventhub: func.Out[str]) -> None:
     if myTimer.past_due:
         logging.warning("Timer is past due")
-    
+
     KEYVAULT_URL = "https://kv-Az-TimeSeries.vault.azure.net/"
 
     BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
     city = "windhoek"
-  
+
     try:
         credential = DefaultAzureCredential()
         secret_client = SecretClient(vault_url=KEYVAULT_URL, credential=credential)
@@ -90,14 +197,14 @@ def fetchweatherapi(myTimer: func.TimerRequest, eventhub: func.Out[str]) -> None
             "payload": data
         }))
 
-        logging.info(f"Weather data for {city}: {data} and this have been send to even_hub as well")
+        logging.info("Weather data sent to Event Hub")
 
     except Exception:
         logging.exception("fetchweatherapi failed")
 
 
 
-# EVENT HUB → POSTGRES
+# EVENT HUB +  POSTGRES
 
 @app.function_name(name="eventhub_to_postgres")
 @app.event_hub_message_trigger(
@@ -121,8 +228,6 @@ def eventhub_to_postgres(event: eh.EventData):
         handle_iot(payload)
     else:
         logging.info("Unknown event type, skipping")
-
-
 
 # WEATHER HANDLER
 
@@ -174,7 +279,7 @@ def handle_weather(event: dict):
         ))
         weather_condition_id = cur.fetchone()[0]
 
-        # Weather reading (deduplicated by index)
+        # Weather reading
         cur.execute("""
             INSERT INTO weather_reading (
                 event_time,
@@ -206,6 +311,10 @@ def handle_weather(event: dict):
         ))
 
         conn.commit()
+
+        # ALERTS
+        run_alerts_from_postgres(cur)
+
         logging.info("Weather data written to Postgres")
 
     except Exception:
@@ -216,8 +325,8 @@ def handle_weather(event: dict):
         if conn:
             conn.close()
 
-
 # IOT + ACTUATOR HANDLER
+
 def handle_iot(event: dict):
     data = event["payload"]
     cfg = get_db_config()
@@ -249,9 +358,9 @@ def handle_iot(event: dict):
             data["measurement_time"]
         ).replace(tzinfo=timezone.utc)
 
-        location_id = None  # nullable by design
+        location_id = None
 
-        # Insert IoT sensor reading 
+        # Insert IoT sensor reading
         cur.execute("""
             INSERT INTO iot_reading (
                 event_time,
@@ -284,15 +393,13 @@ def handle_iot(event: dict):
             if on_flag is None and off_flag is None:
                 continue
 
-            # actuator state detection
             if on_flag == 1:
                 state = True
             elif off_flag == 1:
                 state = False
             else:
-                continue  # ignore  (both flags 0)
+                continue
 
-            # Ensure actuator exists in actuator table
             cur.execute("""
                 INSERT INTO actuator (actuator_name, actuator_type)
                 VALUES (%s, %s)
@@ -302,7 +409,6 @@ def handle_iot(event: dict):
             """, (name, cfg_map["type"]))
             actuator_id = cur.fetchone()[0]
 
-            # Insert actuator event 
             cur.execute("""
                 INSERT INTO actuator_event (
                     event_time,
@@ -320,6 +426,10 @@ def handle_iot(event: dict):
             ))
 
         conn.commit()
+
+        # ALERTS
+        run_alerts_from_postgres(cur)
+
         logging.info("IoT + actuator data written to Postgres")
 
     except Exception:
@@ -329,3 +439,4 @@ def handle_iot(event: dict):
     finally:
         if conn:
             conn.close()
+
