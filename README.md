@@ -299,7 +299,7 @@ Dedicated SQL POOL & [SQL CODE](https://github.com/kada2004/Azure-Streaming-Pipe
 
 ### Email alerts (Twilio SendGrid)
 
-I integrated Twilio SendGrid to send automatic alert emails when sensor or weather thresholds are exceeded (i set the rule of  water level < 20% to trigger the alert on purpose, air/soil temperature limits, soil humidity limits).  
+I integrated Twilio SendGrid to send automatic alert emails when sensor or weather thresholds are exceeded (i set the rule of  air_temp_c > 20% to trigger the alert on purpose, air/soil temperature limits, soil humidity limits).  
 The SendGrid API key is stored securely as an Azure Function application setting (`SENDGRID_API_KEY`).  
 The sender domain `azure-streaming243-alerts.com` was registered and verified in SendGrid, and alerts are sent from `alerts@azure-streaming243-alerts.com`.  
 An example alert:
