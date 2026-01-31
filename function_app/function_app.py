@@ -88,7 +88,7 @@ def run_alerts_from_postgres(cur):
     weather = cur.fetchone()
 
     air_temp_k = weather[0] if weather else None
-    air_temp_c = air_temp_k - 273.15 if air_temp_k is not None else None
+    air_temp_c = float(air_temp_k) - 273.15 if air_temp_k is not None else None
 
     # latest iot
     cur.execute("""
@@ -111,7 +111,7 @@ def run_alerts_from_postgres(cur):
 
     # Air temperature
     if air_temp_c is not None:
-        if air_temp_c > 40:
+        if air_temp_c > 20:
             alerts.append(f"Heat alert – air temperature {air_temp_c:.1f} °C")
         if air_temp_c < 5:
             alerts.append(f"Frost / cold alert – air temperature {air_temp_c:.1f} °C")
