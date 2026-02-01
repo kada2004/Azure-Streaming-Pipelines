@@ -328,16 +328,18 @@ The front-end dashboard is built using **Streamlit** and deployed on **Azure Web
 
 The dashboard provides farmers and users with both **live monitoring** and **historical trend analysis** through a single interface.
 
-(Link to the Streamlit DashBoard)[https://streamlit-timeseries-12345.azurewebsites.net/] if the link does not work, it means that i have stopped all infrastructure in azure to avoid extra cost
+[Link to the Streamlit DashBoard](https://streamlit-timeseries-12345.azurewebsites.net/) if the link does not work, it means that i have stopped all infrastructure in azure to avoid extra cost
 
-### Interface when water level < 20 %
+
 
 <img width="2559" height="1301" alt="image" src="https://github.com/user-attachments/assets/a21d5de0-614f-48b7-8136-a3c7950631ae" />
 
 
 
 
+<img width="2535" height="1250" alt="image (26)" src="https://github.com/user-attachments/assets/b5fdc9e2-1b7e-4403-83ad-add1e7c9cb5b" />
 
+## Conclusion
 
 
 
