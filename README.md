@@ -306,6 +306,14 @@ An example alert:
 
 <img width="1148" height="237" alt="image" src="https://github.com/user-attachments/assets/15d2c9c0-687a-4bb8-ab0d-f916a29e5a28" />
 
+<img width="1078" height="305" alt="image" src="https://github.com/user-attachments/assets/add5aace-e1ee-461c-83a3-ce055dec3815" />
+
+View in Streamlit Dashboard
+
+<img width="492" height="301" alt="image" src="https://github.com/user-attachments/assets/9515167e-384c-470a-ba75-0fac272f3cfa" />
+
+View in Streamlit Dashboard
+<img width="829" height="586" alt="image" src="https://github.com/user-attachments/assets/07337ecb-c968-4933-97d7-fb8c4daa762a" />
 
 
 
@@ -320,10 +328,14 @@ The front-end dashboard is built using **Streamlit** and deployed on **Azure Web
 
 The dashboard provides farmers and users with both **live monitoring** and **historical trend analysis** through a single interface.
 
+(Link to the Streamlit DashBoard)[https://streamlit-timeseries-12345.azurewebsites.net/] if the link does not work, it means that i have stopped all infrastructure in azure to avoid extra cost
 
 ### Interface when water level < 20 %
 
-<img width="2552" height="1294" alt="image (23)" src="https://github.com/user-attachments/assets/6b35a84e-1090-4ba7-b34d-100a134ef0cc" />
+<img width="2559" height="1301" alt="image" src="https://github.com/user-attachments/assets/a21d5de0-614f-48b7-8136-a3c7950631ae" />
+
+
+
 
 
 
