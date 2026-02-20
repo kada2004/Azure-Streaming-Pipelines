@@ -1,3 +1,42 @@
+# Azure Streaming Data Pipeline for Smart Farming
+
+##  Table of Contents
+
+- [Project Introduction & Goals](#project-introduction--goals)
+  - [Introduction](#introduction)
+  - [Project Goals](#project-goals)
+  - [The Project Overview](#the-project-overview)
+
+- [Project Architecture](#project-architecture)
+  - [Stack used in the project](#stack-used-in-the-project)
+  - [Streaming OLTP (Live Data)](#streaming-oltp-live-data)
+  - [Azure OLAP (Historical Analytics)](#azure-olap-historical-analytics)
+  - [Infrastructure, Security & DevOps](#infrastructure-security--devops)
+  - [Project Setup and Prerequisites](#project-setup-and-prerequisites)
+  - [The Dataset](#the-dataset)
+    - [IoT Agriculture Dataset (Kaggle)](#1-iot-agriculture-dataset-kaggle)
+    - [Weather Data Source (OpenWeather API)](#2-weather-data-source-openweather-api)
+
+- [Azure Infrastructure](#azure-infrastructure)
+- [CI/CD Deployment (GitHub Actions)](#cicd-deployment-github-actions)
+
+- [Data Ingestion](#data-ingestion)
+  - [CSV to JSON Transformation (Client API Preparation)](#csv-to-json-transformation-client-api-preparation)
+
+- [Data Processing](#data-processing)
+  - [OLTP Processing (Real-Time)](#1-oltp-processing-real-time)
+  - [OLAP Processing (Historical Analytics)](#2-olap-processing-historical-analytics)
+
+- [Data Storage](#data-storage)
+  - [PostgreSQL (OLTP – Live Data)](#1-postgresql-oltp--live-data)
+  - [Azure Blob Storage (OLAP – Historical Data)](#2-azure-blob-storage-olap--historical-data)
+
+- [Azure Synapse Warehouse](#azure-synapse-warehouse)
+- [Sendgrid and alerting](#sendgrid-and-alerting)
+  - [Email alerts (Twilio SendGrid)](#email-alerts-twilio-sendgrid)
+
+- [Dashboard Web App (Streamlit)](#dashboard-web-app-streamlit)
+- [Conclusion](#conclusion)
 
 # Project Introduction & Goals
 ## Introduction
