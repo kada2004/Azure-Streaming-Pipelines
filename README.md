@@ -42,6 +42,15 @@
 ## Introduction
 This project streams near real-time data from the OpenWeather API and an IoT Kaggle dataset into Azure Event Hub for processing. Azure Functions store live data in PostgreSQL for real-time monitoring, while Azure Stream Analytics loads historical data into Azure Synapse for reporting. A Streamlit dashboard deployed on Azure Web App displays both live and historical insights for farmers.
 
+## Value for Farmers
+Farmers gain real-time visibility and early warnings so they can act before crops are damaged.
+
+- Monitor soil moisture, temperature, water level, and nutrients live  
+- Receive automatic alerts for drought, over-watering, frost, or heat stress  
+- Track historical trends to optimize irrigation and fertilization  
+
+**Impact:** Better crop health, reduced water waste, faster decisions, and more reliable yields.
+
 ## Project Goals
 Transaction Use Case (OLTP – Live Data)
 *  Soil humidity (real-time)
